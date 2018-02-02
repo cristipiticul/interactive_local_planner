@@ -1,0 +1,7 @@
+<library path="lib/libinteractive_local_planner">
+  <class name="interactive_local_planner/InteractiveLocalPlanner" type="interactive_local_planner::InteractiveLocalPlanner" base_class_type="nav_core::BaseLocalPlanner">
+    <description>
+      A implementation of a local planner.
+    </description>
+  </class>
+</library>
