@@ -6,6 +6,7 @@ project(interactive_local_planner)
 
 find_package(catkin REQUIRED COMPONENTS
   base_local_planner
+  dwa_local_planner
   cmake_modules
   costmap_2d
   dynamic_reconfigure
@@ -36,8 +37,9 @@ add_definitions(${EIGEN3_DEFINITIONS})
 
 catkin_package(
     INCLUDE_DIRS include
-    LIBRARIES dwa_local_planner
+    LIBRARIES interactive_local_planner
     CATKIN_DEPENDS
+        dwa_local_planner
         dynamic_reconfigure
         nav_msgs
         pluginlib
@@ -45,8 +47,13 @@ catkin_package(
 )
 
 add_library(interactive_local_planner src/interactive_local_planner.cpp)
-add_dependencies(interactive_local_planner ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(interactive_local_planner ${catkin_LIBRARIES})
+add_dependencies(interactive_local_planner
+  ${${PROJECT_NAME}_EXPORTED_TARGETS}
+  ${catkin_EXPORTED_TARGETS}
+)
+target_link_libraries(interactive_local_planner
+  ${catkin_LIBRARIES}
+)
 
 install(TARGETS interactive_local_planner
        ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
