@@ -172,9 +172,24 @@ using namespace dwa_local_planner;
     drive_cmds.frame_id_ = costmap_ros_->getBaseFrameID();
     
     // call with updated footprint
-    //TODO: base_local_planner::Trajectory path = dp_->findBestPath(global_pose, robot_vel, drive_cmds, costmap_ros_->getRobotFootprint());
+    // we need to call dp_->findBestPath at least once before checkTrajectory()
+    // to set up the footprint
+    base_local_planner::Trajectory path = dp_->findBestPath(global_pose, robot_vel, drive_cmds, costmap_ros_->getRobotFootprint());
     base_local_planner::Trajectory path_empty_costmap = dp_empty_costmap_->findBestPath(global_pose, robot_vel, drive_cmds, costmap_ros_->getRobotFootprint());
     //ROS_ERROR("Best: %.2f, %.2f, %.2f, %.2f", path.xv_, path.yv_, path.thetav_, path.cost_);
+
+    Eigen::Vector3f robot_pose_eigen(global_pose.getOrigin().x(), global_pose.getOrigin().y(), tf::getYaw(global_pose.getRotation()));
+    Eigen::Vector3f robot_vel_eigen(robot_vel.getOrigin().x(), robot_vel.getOrigin().y(), tf::getYaw(robot_vel.getRotation()));
+    Eigen::Vector3f desired_vel_eigen(drive_cmds.getOrigin().x(), drive_cmds.getOrigin().y(), tf::getYaw(drive_cmds.getRotation()));
+    ROS_INFO("OK!");
+    ROS_INFO("1: %f %f %f", robot_pose_eigen[0], robot_pose_eigen[1], robot_pose_eigen[2]);
+    ROS_INFO("2: %f %f %f", robot_vel_eigen[0], robot_vel_eigen[1], robot_vel_eigen[2]);
+    ROS_INFO("3: %f %f %f", desired_vel_eigen[0], desired_vel_eigen[1], desired_vel_eigen[2]);
+    if (!dp_->checkTrajectory(robot_pose_eigen, robot_vel_eigen, desired_vel_eigen))
+    {
+      ROS_INFO("!!PATH GOES THROUGH OBSTACLES");
+    }
+    ROS_INFO("OK2!");
 
     /* For timing uncomment
     gettimeofday(&end, NULL);
@@ -249,7 +264,7 @@ using namespace dwa_local_planner;
     ROS_DEBUG_NAMED("dwa_local_planner", "Received a transformed plan with %zu points.", transformed_plan.size());
 
     // update plan in dwa_planner even if we just stop and rotate, to allow checkTrajectory
-    //TODO: dp_->updatePlanAndLocalCosts(current_pose_, transformed_plan);
+    dp_->updatePlanAndLocalCosts(current_pose_, transformed_plan);
     dp_empty_costmap_->updatePlanAndLocalCosts(current_pose_, transformed_plan);
 
     //TODO: if (latchedStopRotateController_.isPositionReached(&planner_util_, current_pose_)) {
