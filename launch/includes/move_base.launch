@@ -18,6 +18,7 @@
     <rosparam file="$(find interactive_local_planner)/param/local_costmap_params.yaml" command="load" />   
     <rosparam file="$(find interactive_local_planner)/param/global_costmap_params.yaml" command="load" />
     <rosparam file="$(find interactive_local_planner)/param/interactive_local_planner_params.yaml" command="load" />
+    <rosparam file="$(find interactive_local_planner)/param/interactive_local_planner_empty_costmap_params.yaml" command="load" />
     <rosparam file="$(find interactive_local_planner)/param/move_base_params.yaml" command="load" />
     <rosparam file="$(find interactive_local_planner)/param/global_planner_params.yaml" command="load" />
     <!-- external params file that could be loaded into the move_base namespace -->

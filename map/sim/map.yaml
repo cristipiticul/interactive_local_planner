@@ -1,4 +1,4 @@
-image: /home/cristi/turtlebot_ws/src/interactive_local_planner/map/my_map_new.pgm
+image: map.pgm
 resolution: 0.050000
 origin: [-17.000000, -13.800000, 0.000000]
 negate: 0

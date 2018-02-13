@@ -171,6 +171,9 @@ using namespace dwa_local_planner;
     tf::Stamped<tf::Pose> drive_cmds;
     drive_cmds.frame_id_ = costmap_ros_->getBaseFrameID();
     
+    // update empty_costmap
+    empty_costmap_.updateOrigin(costmap_ros_->getCostmap()->getOriginX(), costmap_ros_->getCostmap()->getOriginY());
+
     // call with updated footprint
     // we need to call dp_->findBestPath at least once before checkTrajectory()
     // to set up the footprint
@@ -181,15 +184,14 @@ using namespace dwa_local_planner;
     Eigen::Vector3f robot_pose_eigen(global_pose.getOrigin().x(), global_pose.getOrigin().y(), tf::getYaw(global_pose.getRotation()));
     Eigen::Vector3f robot_vel_eigen(robot_vel.getOrigin().x(), robot_vel.getOrigin().y(), tf::getYaw(robot_vel.getRotation()));
     Eigen::Vector3f desired_vel_eigen(drive_cmds.getOrigin().x(), drive_cmds.getOrigin().y(), tf::getYaw(drive_cmds.getRotation()));
-    ROS_INFO("OK!");
-    ROS_INFO("1: %f %f %f", robot_pose_eigen[0], robot_pose_eigen[1], robot_pose_eigen[2]);
-    ROS_INFO("2: %f %f %f", robot_vel_eigen[0], robot_vel_eigen[1], robot_vel_eigen[2]);
-    ROS_INFO("3: %f %f %f", desired_vel_eigen[0], desired_vel_eigen[1], desired_vel_eigen[2]);
     if (!dp_->checkTrajectory(robot_pose_eigen, robot_vel_eigen, desired_vel_eigen))
     {
-      ROS_INFO("!!PATH GOES THROUGH OBSTACLES");
+      ROS_INFO("Ignore the previous warning. It's ok. We just need to sit for a while..");
+      cmd_vel.linear.x = 0.0;
+      cmd_vel.linear.y = 0.0;
+      cmd_vel.angular.z = 0.0;
+      return true;
     }
-    ROS_INFO("OK2!");
 
     /* For timing uncomment
     gettimeofday(&end, NULL);
@@ -299,75 +301,4 @@ using namespace dwa_local_planner;
       return isOk;
     }
   }
-  /*
-
-InteractiveLocalPlanner::InteractiveLocalPlanner()
-{
-    std::cout << "constructor!\n";
-}
-
-bool InteractiveLocalPlanner::computeVelocityCommands(geometry_msgs::Twist& cmd_vel)
-{
-    tf::Stamped<tf::Pose> robotPose;
-    if (!costmap_ros_->getRobotPose(robotPose))
-    {
-        ROS_WARN("Could not get robot pose!");
-        return false;
-    }
-
-    size_t closestPointIndex = 0;
-    double minDist2 = tf::tfDistance2(plan_tf_[0].getOrigin(), robotPose.getOrigin());
-    for (size_t i = 1; i < plan_.size(); i++)
-    {
-        double dist2 = tf::tfDistance2(plan_tf_[i].getOrigin(), robotPose.getOrigin());
-        if (dist2 < minDist2)
-        {
-            minDist2 = dist2;
-            closestPointIndex = i;
-        }
-    }
-
-    tf::Pose destination;
-    if (closestPointIndex < plan_tf_.size() - 1)
-    {
-        destination = plan_tf_[closestPointIndex + 1];
-    }
-    else
-    {
-        destination = plan_tf_[closestPointIndex];
-    }
-
-    cmd_vel.linear.x = 0.1;
-    cmd_vel.linear.y = 0.0;
-    cmd_vel.linear.z = 0.0;
-    cmd_vel.angular.x = 0.0;
-    cmd_vel.angular.y = 0.0;
-    cmd_vel.angular.z = tf::getYaw(destination.getRotation()) - tf::getYaw(robotPose.getRotation());
-
-    std::cout << "computeVelocityCommands!\n";
-    return true;
-}
-
-bool InteractiveLocalPlanner::isGoalReached()
-{
-    std::cout << "isGoalReached!\n";
-    return false;
-}
-
-bool InteractiveLocalPlanner::setPlan(const std::vector<geometry_msgs::PoseStamped>& plan)
-{    plan_ = plan;
-    plan_tf_.resize(plan.size());
-    for (size_t i = 0; i < plan.size(); i++)
-    {
-        tf::poseMsgToTF(plan[i].pose, plan_tf_[i]);
-    }
-    return true;
-}
-
-void InteractiveLocalPlanner::initialize(std::string name, tf::TransformListener* tf, costmap_2d::Costmap2DROS* costmap_ros)
-{
-    costmap_ros_ = costmap_ros;
-}
-*/
-
 }
