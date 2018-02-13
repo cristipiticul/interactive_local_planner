@@ -41,43 +41,45 @@ public:
         return initialized_;
     }
 private:
-      /**
-       * @brief Callback to update the local planner's parameters based on dynamic reconfigure
-       */
-      void reconfigureCB(dwa_local_planner::DWAPlannerConfig &config, uint32_t level);
+    /**
+     * @brief Callback to update the local planner's parameters based on dynamic reconfigure
+     */
+    void reconfigureCB(dwa_local_planner::DWAPlannerConfig &config, uint32_t level);
 
-      void publishLocalPlan(std::vector<geometry_msgs::PoseStamped>& path);
+    void publishLocalPlan(std::vector<geometry_msgs::PoseStamped>& path);
 
-      void publishGlobalPlan(std::vector<geometry_msgs::PoseStamped>& path);
+    void publishGlobalPlan(std::vector<geometry_msgs::PoseStamped>& path);
 
-      tf::TransformListener* tf_; ///< @brief Used for transforming point clouds
+    tf::TransformListener* tf_; ///< @brief Used for transforming point clouds
 
-      // for visualisation, publishers of global and local plan
-      ros::Publisher g_plan_pub_, l_plan_pub_;
+    // for visualisation, publishers of global and local plan
+    ros::Publisher g_plan_pub_, l_plan_pub_;
 
-      base_local_planner::LocalPlannerUtil planner_util_;
+    base_local_planner::LocalPlannerUtil planner_util_;
 
-      boost::shared_ptr<dwa_local_planner::DWAPlanner> dp_; ///< @brief The trajectory controller
+    boost::shared_ptr<dwa_local_planner::DWAPlanner> dp_; ///< @brief The trajectory controller
 
-      costmap_2d::Costmap2DROS* costmap_ros_;
+    costmap_2d::Costmap2DROS* costmap_ros_;
 
-      dynamic_reconfigure::Server<dwa_local_planner::DWAPlannerConfig> *dsrv_;
-      dwa_local_planner::DWAPlannerConfig default_config_;
-      bool setup_;
-      tf::Stamped<tf::Pose> current_pose_;
+    dynamic_reconfigure::Server<dwa_local_planner::DWAPlannerConfig> *dsrv_;
+    dwa_local_planner::DWAPlannerConfig default_config_;
+    bool setup_;
+    tf::Stamped<tf::Pose> current_pose_;
 
-      base_local_planner::LatchedStopRotateController latchedStopRotateController_;
-
-
-      bool initialized_;
+    base_local_planner::LatchedStopRotateController latchedStopRotateController_;
 
 
-      base_local_planner::OdometryHelperRos odom_helper_;
-      std::string odom_topic_;
+    bool initialized_;
 
-      costmap_2d::Costmap2D empty_costmap_;
-      base_local_planner::LocalPlannerUtil planner_util_empty_costmap_;
-      boost::shared_ptr<dwa_local_planner::DWAPlanner> dp_empty_costmap_;
+
+    base_local_planner::OdometryHelperRos odom_helper_;
+    std::string odom_topic_;
+
+
+    boost::shared_ptr<base_local_planner::ObstacleCostFunction> obstacle_cost_function_;
+    costmap_2d::Costmap2D empty_costmap_;
+    base_local_planner::LocalPlannerUtil planner_util_empty_costmap_;
+    boost::shared_ptr<dwa_local_planner::DWAPlanner> dp_empty_costmap_;
 };
 
 }

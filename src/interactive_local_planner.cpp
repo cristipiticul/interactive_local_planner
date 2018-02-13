@@ -9,7 +9,10 @@
 #include <pluginlib/class_list_macros.h>
 
 #include <base_local_planner/goal_functions.h>
+#include <base_local_planner/obstacle_cost_function.h>
 #include <nav_msgs/Path.h>
+
+#define MIN_DISTANCE_TO_FIRST_OBSTACLE 0.25
 
 
 PLUGINLIB_EXPORT_CLASS(interactive_local_planner::InteractiveLocalPlanner, nav_core::BaseLocalPlanner)
@@ -18,6 +21,7 @@ namespace interactive_local_planner
 {
 
 using namespace dwa_local_planner;
+using namespace base_local_planner;
 
   void InteractiveLocalPlanner::reconfigureCB(DWAPlannerConfig &config, uint32_t level) {
       if (setup_ && config.restore_defaults) {
@@ -54,6 +58,10 @@ using namespace dwa_local_planner;
       // update dwa specific configuration
       dp_->reconfigure(config);
       dp_empty_costmap_->reconfigure(config);
+
+      obstacle_cost_function_->setScale(costmap_ros_->getCostmap()->getResolution() * config.occdist_scale);
+      obstacle_cost_function_->setParams(config.max_trans_vel, config.max_scaling_factor, config.scaling_speed);
+      obstacle_cost_function_->setSumScores(true);
   }
 
   InteractiveLocalPlanner::InteractiveLocalPlanner() : initialized_(false),
@@ -86,6 +94,8 @@ using namespace dwa_local_planner;
 
       //create the actual planner that we'll use.. it'll configure itself from the parameter server
       dp_ = boost::shared_ptr<DWAPlanner>(new DWAPlanner(name, &planner_util_));
+      obstacle_cost_function_ = boost::shared_ptr<ObstacleCostFunction>(new ObstacleCostFunction(costmap_ros_->getCostmap()));
+      obstacle_cost_function_->setFootprint(costmap_ros_->getRobotFootprint());
       dp_empty_costmap_ = boost::shared_ptr<DWAPlanner>(new DWAPlanner(name + "_empty_costmap", &planner_util_empty_costmap_));
 
       if( private_nh.getParam( "odom_topic", odom_topic_ ))
@@ -170,6 +180,9 @@ using namespace dwa_local_planner;
     //compute what trajectory to drive along
     tf::Stamped<tf::Pose> drive_cmds;
     drive_cmds.frame_id_ = costmap_ros_->getBaseFrameID();
+
+    // Update empty costmap position
+    empty_costmap_.updateOrigin(costmap_ros_->getCostmap()->getOriginX(), costmap_ros_->getCostmap()->getOriginY());
     
     // call with updated footprint
     // we need to call dp_->findBestPath at least once before checkTrajectory()
@@ -178,6 +191,7 @@ using namespace dwa_local_planner;
     base_local_planner::Trajectory path_empty_costmap = dp_empty_costmap_->findBestPath(global_pose, robot_vel, drive_cmds, costmap_ros_->getRobotFootprint());
     //ROS_ERROR("Best: %.2f, %.2f, %.2f, %.2f", path.xv_, path.yv_, path.thetav_, path.cost_);
 
+    /*
     Eigen::Vector3f robot_pose_eigen(global_pose.getOrigin().x(), global_pose.getOrigin().y(), tf::getYaw(global_pose.getRotation()));
     Eigen::Vector3f robot_vel_eigen(robot_vel.getOrigin().x(), robot_vel.getOrigin().y(), tf::getYaw(robot_vel.getRotation()));
     Eigen::Vector3f desired_vel_eigen(drive_cmds.getOrigin().x(), drive_cmds.getOrigin().y(), tf::getYaw(drive_cmds.getRotation()));
@@ -185,9 +199,35 @@ using namespace dwa_local_planner;
     ROS_INFO("1: %f %f %f", robot_pose_eigen[0], robot_pose_eigen[1], robot_pose_eigen[2]);
     ROS_INFO("2: %f %f %f", robot_vel_eigen[0], robot_vel_eigen[1], robot_vel_eigen[2]);
     ROS_INFO("3: %f %f %f", desired_vel_eigen[0], desired_vel_eigen[1], desired_vel_eigen[2]);
-    if (!dp_->checkTrajectory(robot_pose_eigen, robot_vel_eigen, desired_vel_eigen))
+    */
+    if (obstacle_cost_function_->scoreTrajectory(path_empty_costmap) < 0)
     {
-      ROS_INFO("!!PATH GOES THROUGH OBSTACLES");
+      // Find the first point of the trajectory that is in collision
+      Eigen::Vector2d first_obstacle;
+      Trajectory partial_trajectory(path_empty_costmap.xv_, path_empty_costmap.yv_, path_empty_costmap.thetav_, path_empty_costmap.time_delta_, path_empty_costmap.getPointsSize());
+      for (size_t i = 0; i < path_empty_costmap.getPointsSize(); i++)
+      {
+        double x, y, th;
+        path_empty_costmap.getPoint(i, x, y, th);
+        partial_trajectory.addPoint(x, y, th);
+        if (obstacle_cost_function_->scoreTrajectory(partial_trajectory) < 0)
+        {
+          first_obstacle[0] = x;
+          first_obstacle[1] = y;
+          break;
+        }
+      }
+
+      // If the distance is lower than a threshold, we have to stop
+      if (std::sqrt(first_obstacle.dot(first_obstacle)) <= MIN_DISTANCE_TO_FIRST_OBSTACLE)
+      {
+        cmd_vel.linear.x = 0;
+        cmd_vel.linear.y = 0;
+        cmd_vel.angular.z = 0;
+        
+        return true;
+      }
+      // Otherwise, we don't care
     }
     ROS_INFO("OK2!");
 
