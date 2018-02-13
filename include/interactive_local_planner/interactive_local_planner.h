@@ -25,6 +25,11 @@
 namespace interactive_local_planner
 {
 
+enum InteractiveLocalPlannerState
+{
+    RUNNING, WAITING_FOR_OBSTACLE_TO_MOVE, GOING_AROUND_OBSTACLE
+};
+
 class InteractiveLocalPlanner: public nav_core::BaseLocalPlanner
 {
 public:
@@ -34,7 +39,9 @@ public:
     bool isGoalReached();
     bool setPlan(const std::vector<geometry_msgs::PoseStamped>& plan);
     void initialize(std::string name, tf::TransformListener* tf, costmap_2d::Costmap2DROS* costmap_ros);
+
     bool dwaComputeVelocityCommands(tf::Stamped<tf::Pose>& global_pose, geometry_msgs::Twist& cmd_vel);
+    bool computeVelocityCommandsIgnoringObstacles(tf::Stamped<tf::Pose>& global_pose, geometry_msgs::Twist& cmd_vel);
 
     bool isInitialized()
     {
@@ -76,6 +83,9 @@ private:
     std::string odom_topic_;
 
 
+    InteractiveLocalPlannerState current_state_;
+    // If the robot encounters an obstacle, it records the first time the obstacle is met.
+    ros::Time wait_time_start_;
     boost::shared_ptr<base_local_planner::ObstacleCostFunction> obstacle_cost_function_;
     costmap_2d::Costmap2D empty_costmap_;
     base_local_planner::LocalPlannerUtil planner_util_empty_costmap_;
