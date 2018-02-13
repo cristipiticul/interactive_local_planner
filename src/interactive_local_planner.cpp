@@ -190,27 +190,7 @@ using namespace base_local_planner;
     base_local_planner::Trajectory path = dp_->findBestPath(global_pose, robot_vel, drive_cmds, costmap_ros_->getRobotFootprint());
     base_local_planner::Trajectory path_empty_costmap = dp_empty_costmap_->findBestPath(global_pose, robot_vel, drive_cmds, costmap_ros_->getRobotFootprint());
 
-    // call with updated footprint
-    // we need to call dp_->findBestPath at least once before checkTrajectory()
-    // to set up the footprint
-    base_local_planner::Trajectory path = dp_->findBestPath(global_pose, robot_vel, drive_cmds, costmap_ros_->getRobotFootprint());
-    base_local_planner::Trajectory path_empty_costmap = dp_empty_costmap_->findBestPath(global_pose, robot_vel, drive_cmds, costmap_ros_->getRobotFootprint());
-    //ROS_ERROR("Best: %.2f, %.2f, %.2f, %.2f", path.xv_, path.yv_, path.thetav_, path.cost_);
-
-    /*
-    Eigen::Vector3f robot_pose_eigen(global_pose.getOrigin().x(), global_pose.getOrigin().y(), tf::getYaw(global_pose.getRotation()));
-    Eigen::Vector3f robot_vel_eigen(robot_vel.getOrigin().x(), robot_vel.getOrigin().y(), tf::getYaw(robot_vel.getRotation()));
-    Eigen::Vector3f desired_vel_eigen(drive_cmds.getOrigin().x(), drive_cmds.getOrigin().y(), tf::getYaw(drive_cmds.getRotation()));
-    ROS_INFO("OK!");
-    ROS_INFO("1: %f %f %f", robot_pose_eigen[0], robot_pose_eigen[1], robot_pose_eigen[2]);
-    ROS_INFO("2: %f %f %f", robot_vel_eigen[0], robot_vel_eigen[1], robot_vel_eigen[2]);
-    ROS_INFO("3: %f %f %f", desired_vel_eigen[0], desired_vel_eigen[1], desired_vel_eigen[2]);
-    */
     if (obstacle_cost_function_->scoreTrajectory(path_empty_costmap) < 0)
-    {
-      // Find the first point of the trajectory that is in collision
-      Eigen::Vector2d first_obstacle;
-      Trajectory partial_trajectory(path_empty_costmap.xv_, path_empty_costmap.yv_, path_empty_costmap.thetav_, path_empty_costmap.time_delta_, path_empty_costmap.getPointsSize());
     {
       // Find the first point of the trajectory that is in collision
       Eigen::Vector2d first_obstacle;
@@ -228,9 +208,22 @@ using namespace base_local_planner;
         }
       }
 
-    }
-    ROS_INFO("OK2!");
+      Eigen::Vector2d first_point;
+      double not_used_theta;
+      path_empty_costmap.getPoint(0, first_point[0], first_point[1], not_used_theta);
+      Eigen::Vector2d difference_vector(first_obstacle - first_point);
+      double distance = std::sqrt(difference_vector.dot(difference_vector));
+      if (distance < MIN_DISTANCE_TO_FIRST_OBSTACLE)
+      {
+        cmd_vel.linear.x = 0;
+        cmd_vel.linear.y = 0;
+        cmd_vel.angular.z = 0;
 
+        return true;
+      }
+
+    }
+    
     /* For timing uncomment
     gettimeofday(&end, NULL);
     start_t = start.tv_sec + double(start.tv_usec) / 1e6;
