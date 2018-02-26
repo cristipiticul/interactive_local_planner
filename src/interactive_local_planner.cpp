@@ -18,6 +18,10 @@
 #define MIN_DISTANCE_TO_FIRST_OBSTACLE 0.1
 // Waiting time (in seconds) for the obstacle to move
 #define WAIT_FOR_OBSTACLE_TO_MOVE_TIME 5.0
+// The minimum distance after which we consider the robot has successfully avoided
+// the obstacle. The distance is measured in meters. The distance is measured from
+// the first robot pose that is in collision with an obstacle.
+#define MIN_DISTANCE_AFTER_OBSTACLE 0.2
 
 PLUGINLIB_EXPORT_CLASS(interactive_local_planner::InteractiveLocalPlanner, nav_core::BaseLocalPlanner)
 
@@ -168,7 +172,8 @@ using namespace base_local_planner;
 
 
 
-  bool InteractiveLocalPlanner::dwaComputeVelocityCommands(tf::Stamped<tf::Pose> &global_pose, geometry_msgs::Twist& cmd_vel)
+  bool InteractiveLocalPlanner::dwaComputeVelocityCommands(tf::Stamped<tf::Pose> &global_pose,
+    geometry_msgs::Twist& cmd_vel, Trajectory& resulting_trajectory)
   {
     // dynamic window sampling approach to get useful velocity commands
     if(! isInitialized()){
@@ -179,69 +184,22 @@ using namespace base_local_planner;
     tf::Stamped<tf::Pose> robot_vel;
     odom_helper_.getRobotVel(robot_vel);
 
-    /* For timing uncomment
-    struct timeval start, end;
-    double start_t, end_t, t_diff;
-    gettimeofday(&start, NULL);
-    */
-
     //compute what trajectory to drive along
     tf::Stamped<tf::Pose> drive_cmds;
     drive_cmds.frame_id_ = costmap_ros_->getBaseFrameID();
     
-    // we need to call dp_->findBestPath at least once before checkTrajectory()
-    // to set up the footprint
-    base_local_planner::Trajectory path = dp_->findBestPath(global_pose, robot_vel, drive_cmds, costmap_ros_->getRobotFootprint());
-    
-    /* For timing uncomment
-    gettimeofday(&end, NULL);
-    start_t = start.tv_sec + double(start.tv_usec) / 1e6;
-    end_t = end.tv_sec + double(end.tv_usec) / 1e6;
-    t_diff = end_t - start_t;
-    ROS_INFO("Cycle time: %.9f", t_diff);
-    */
+    resulting_trajectory = dp_->findBestPath(global_pose, robot_vel, drive_cmds, costmap_ros_->getRobotFootprint());
 
     //pass along drive commands
     cmd_vel.linear.x = drive_cmds.getOrigin().getX();
     cmd_vel.linear.y = drive_cmds.getOrigin().getY();
     cmd_vel.angular.z = tf::getYaw(drive_cmds.getRotation());
 
-    //if we cannot move... tell someone
-    std::vector<geometry_msgs::PoseStamped> local_plan;
-    if (path.cost_ < 0)
-    {
-      ROS_DEBUG_NAMED("dwa_local_planner",
-          "The dwa local planner failed to find a valid plan, cost functions discarded all candidates. This can mean there is an obstacle too close to the robot.");
-      local_plan.clear();
-      publishLocalPlan(local_plan);
-      return false;
-    }
-
-    ROS_DEBUG_NAMED("dwa_local_planner", "A valid velocity command of (%.2f, %.2f, %.2f) was found for this cycle.", 
-                    cmd_vel.linear.x, cmd_vel.linear.y, cmd_vel.angular.z);
-
-    // Fill out the local plan
-    for(unsigned int i = 0; i < path.getPointsSize(); ++i) {
-      double p_x, p_y, p_th;
-      path.getPoint(i, p_x, p_y, p_th);
-
-      tf::Stamped<tf::Pose> p =
-              tf::Stamped<tf::Pose>(tf::Pose(
-                      tf::createQuaternionFromYaw(p_th),
-                      tf::Point(p_x, p_y, 0.0)),
-                      ros::Time::now(),
-                      costmap_ros_->getGlobalFrameID());
-      geometry_msgs::PoseStamped pose;
-      tf::poseStampedTFToMsg(p, pose);
-      local_plan.push_back(pose);
-    }
-
-    //publish information to the visualizer
-    publishLocalPlan(local_plan);
-    return true;
+    return resulting_trajectory.cost_ >= 0;
   }
 
-  bool InteractiveLocalPlanner::computeVelocityCommandsIgnoringObstacles(tf::Stamped<tf::Pose> &global_pose, geometry_msgs::Twist& cmd_vel)
+  bool InteractiveLocalPlanner::computeVelocityCommandsIgnoringObstacles(tf::Stamped<tf::Pose> &global_pose,
+    geometry_msgs::Twist& cmd_vel, Trajectory& resulting_trajectory)
   {
     // dynamic window sampling approach to get useful velocity commands
     if(! isInitialized()){
@@ -259,62 +217,48 @@ using namespace base_local_planner;
     drive_cmds.frame_id_ = costmap_ros_->getBaseFrameID();
 
     // call with updated footprint
-    base_local_planner::Trajectory path_empty_costmap = dp_empty_costmap_->findBestPath(global_pose, robot_vel, drive_cmds, costmap_ros_->getRobotFootprint());
+    resulting_trajectory = dp_empty_costmap_->findBestPath(global_pose, robot_vel, drive_cmds, costmap_ros_->getRobotFootprint());
 
-    // there is an obstacle on the path
-    if (obstacle_cost_function_->scoreTrajectory(path_empty_costmap) < 0)
-    {
-      // Check if the obstacle is close to the robot
-      // Find the first point of the trajectory that is in collision
-      Eigen::Vector2d first_obstacle;
-      Trajectory partial_trajectory(path_empty_costmap.xv_, path_empty_costmap.yv_, path_empty_costmap.thetav_, path_empty_costmap.time_delta_, path_empty_costmap.getPointsSize());
-      for (size_t i = 0; i < path_empty_costmap.getPointsSize(); i++)
-      {
-        double x, y, th;
-        path_empty_costmap.getPoint(i, x, y, th);
-        partial_trajectory.addPoint(x, y, th);
-        if (obstacle_cost_function_->scoreTrajectory(partial_trajectory) < 0)
-        {
-          first_obstacle[0] = x;
-          first_obstacle[1] = y;
-          break;
-        }
-      }
-
-      Eigen::Vector2d first_point;
-      double not_used_theta;
-      path_empty_costmap.getPoint(0, first_point[0], first_point[1], not_used_theta);
-      Eigen::Vector2d difference_vector(first_obstacle - first_point);
-      double distance = std::sqrt(difference_vector.dot(difference_vector));
-      if (distance < MIN_DISTANCE_TO_FIRST_OBSTACLE)
-      {
-        return false;
-      }
-    }
-    
     //pass along drive commands
     cmd_vel.linear.x = drive_cmds.getOrigin().getX();
     cmd_vel.linear.y = drive_cmds.getOrigin().getY();
     cmd_vel.angular.z = tf::getYaw(drive_cmds.getRotation());
 
-    //if we cannot move... tell someone
-    std::vector<geometry_msgs::PoseStamped> local_plan;
-    if (path_empty_costmap.cost_ < 0)
+    // check if the path collides with obstacles
+    bool path_is_valid = obstacle_cost_function_->scoreTrajectory(resulting_trajectory) >= 0;
+    return path_is_valid;
+  }
+
+  bool InteractiveLocalPlanner::collisionPoseIsFar(const Trajectory& path_empty_costmap,
+    Eigen::Vector2d& first_collision_pose)
+  {
+    Trajectory partial_trajectory(path_empty_costmap.xv_, path_empty_costmap.yv_, path_empty_costmap.thetav_, path_empty_costmap.time_delta_, path_empty_costmap.getPointsSize());
+    for (size_t i = 0; i < path_empty_costmap.getPointsSize(); i++)
     {
-      ROS_DEBUG_NAMED("dwa_local_planner",
-          "The dwa local planner failed to find a valid plan, cost functions discarded all candidates. This can mean there is an obstacle too close to the robot.");
-      local_plan.clear();
-      publishLocalPlan(local_plan);
-      return false;
+      double x, y, th;
+      path_empty_costmap.getPoint(i, x, y, th);
+      partial_trajectory.addPoint(x, y, th);
+      if (obstacle_cost_function_->scoreTrajectory(partial_trajectory) < 0)
+      {
+        first_collision_pose[0] = x;
+        first_collision_pose[1] = y;
+        break;
+      }
     }
 
-    ROS_DEBUG_NAMED("dwa_local_planner", "A valid velocity command of (%.2f, %.2f, %.2f) was found for this cycle.", 
-                    cmd_vel.linear.x, cmd_vel.linear.y, cmd_vel.angular.z);
+    Eigen::Vector2d first_point;
+    double not_used_theta;
+    path_empty_costmap.getPoint(0, first_point[0], first_point[1], not_used_theta);
+    double distance = (first_collision_pose - first_point).norm();
+    return distance >= MIN_DISTANCE_TO_FIRST_OBSTACLE;
+  }
 
+  std::vector<geometry_msgs::PoseStamped> InteractiveLocalPlanner::createLocalPlanFromTrajectory(const Trajectory& trajectory) {
+    std::vector<geometry_msgs::PoseStamped> local_plan;
     // Fill out the local plan
-    for(unsigned int i = 0; i < path_empty_costmap.getPointsSize(); ++i) {
+    for(unsigned int i = 0; i < trajectory.getPointsSize(); ++i) {
       double p_x, p_y, p_th;
-      path_empty_costmap.getPoint(i, p_x, p_y, p_th);
+      trajectory.getPoint(i, p_x, p_y, p_th);
 
       tf::Stamped<tf::Pose> p =
               tf::Stamped<tf::Pose>(tf::Pose(
@@ -326,14 +270,8 @@ using namespace base_local_planner;
       tf::poseStampedTFToMsg(p, pose);
       local_plan.push_back(pose);
     }
-
-    //publish information to the visualizer
-
-    publishLocalPlan(local_plan);
-    return true;
+    return local_plan;
   }
-
-
 
 
   bool InteractiveLocalPlanner::computeVelocityCommands(geometry_msgs::Twist& cmd_vel) {
@@ -364,10 +302,10 @@ using namespace base_local_planner;
 
     //if the global plan passed in is empty... we won't do anything
     if(transformed_plan.empty()) {
-      ROS_WARN_NAMED("dwa_local_planner", "Received an empty transformed plan.");
+      ROS_WARN("Received an empty transformed plan.");
       return false;
     }
-    ROS_DEBUG_NAMED("dwa_local_planner", "Received a transformed plan with %zu points.", transformed_plan.size());
+    ROS_DEBUG("Received a transformed plan with %zu points.", transformed_plan.size());
 
     // update plan in dwa_planner even if we just stop and rotate, to allow checkTrajectory
     dp_->updatePlanAndLocalCosts(current_pose_, transformed_plan);
@@ -391,56 +329,86 @@ using namespace base_local_planner;
     } else {
       if (current_state_ == RUNNING)
       {
-        if (computeVelocityCommandsIgnoringObstacles(current_pose_, cmd_vel))
-        // no obstacles
-        {
-          return true;
+        Trajectory trajectory;
+        Eigen::Vector2d first_collision_pose;
+        bool isOk = computeVelocityCommandsIgnoringObstacles(current_pose_, cmd_vel, trajectory);
+        if (!isOk && collisionPoseIsFar(trajectory, first_collision_pose)) {
+          isOk = true;
         }
-        else
-        {
+
+        if (isOk) {
+          ROS_DEBUG("A valid velocity command of (%.2f, %.2f, %.2f) was found for this cycle.", 
+                      cmd_vel.linear.x, cmd_vel.linear.y, cmd_vel.angular.z);
+          publishGlobalPlan(transformed_plan);
+          std::vector<geometry_msgs::PoseStamped> local_plan = createLocalPlanFromTrajectory(trajectory);
+          publishLocalPlan(local_plan);
+          return true;
+        } else {
           ROS_INFO("Found an obstacle on the path. Waiting for it to move...");
           current_state_ = WAITING_FOR_OBSTACLE_TO_MOVE;
+          first_collision_pose_ = first_collision_pose;
           wait_time_start_ = ros::Time::now();
         }
       }
 
-      if (current_state_ == WAITING_FOR_OBSTACLE_TO_MOVE)
-      {
+      if (current_state_ == WAITING_FOR_OBSTACLE_TO_MOVE) {
         // Check if the obstacle moved...
-        if (computeVelocityCommandsIgnoringObstacles(current_pose_, cmd_vel))
-        {
+        Trajectory trajectory;
+        Eigen::Vector2d first_collision_pose;
+        bool isOk = computeVelocityCommandsIgnoringObstacles(current_pose_, cmd_vel, trajectory);
+        if (!isOk && collisionPoseIsFar(trajectory, first_collision_pose)) {
+          isOk = true;
+        }
+        if (isOk) {
           ROS_INFO("The obstacle moved! We continue pursuing the trajectory...");
           current_state_ = RUNNING;
           return true;
         }
 
-        if (ros::Time::now() - wait_time_start_ <= ros::Duration(WAIT_FOR_OBSTACLE_TO_MOVE_TIME))
-        {
+        if (ros::Time::now() - wait_time_start_ <= ros::Duration(WAIT_FOR_OBSTACLE_TO_MOVE_TIME)) {
           cmd_vel.linear.x = 0;
           cmd_vel.linear.y = 0;
           cmd_vel.angular.z = 0;
 
+          std::vector<geometry_msgs::PoseStamped> empty_plan;
+          publishGlobalPlan(empty_plan);
+          publishLocalPlan(empty_plan);
+
           return true;
-        }
-        else
-        {
+        } else {
           ROS_INFO("The obstacle did not move. Going around it...");
           current_state_ = GOING_AROUND_OBSTACLE;
         }
       }
 
-      if (current_state_ == GOING_AROUND_OBSTACLE)
-      {
-        // TODO: check when the obstacle was successfuly avoided
-        // Tip: maybe use a fixed distance between the first collision point
-        //      and robot's current pose.
-        bool isOk = dwaComputeVelocityCommands(current_pose_, cmd_vel);
-        if (isOk) {
-          publishGlobalPlan(transformed_plan);
-        } else {
-          ROS_WARN_NAMED("dwa_local_planner", "DWA planner failed to produce path.");
+      if (current_state_ == GOING_AROUND_OBSTACLE) {
+        // check if the obstacle was successfuly avoided
+        Eigen::Vector2d current_pose_eigen(current_pose_.getOrigin().getX(), current_pose_.getOrigin().getY());
+        double distance = (current_pose_eigen - first_collision_pose_).norm();
+        if (distance >= MIN_DISTANCE_AFTER_OBSTACLE) {
+          ROS_DEBUG("The obstacle was avoided successfully! We continue pursuing the trajectory...");
+          current_state_ = RUNNING;
+
+          cmd_vel.linear.x = 0;
+          cmd_vel.linear.y = 0;
+          cmd_vel.angular.z = 0;
+
           std::vector<geometry_msgs::PoseStamped> empty_plan;
           publishGlobalPlan(empty_plan);
+          publishLocalPlan(empty_plan);
+          return true;
+        }
+        Trajectory trajectory;
+        bool isOk = dwaComputeVelocityCommands(current_pose_, cmd_vel, trajectory);
+        if (isOk) {
+          publishGlobalPlan(transformed_plan);
+          std::vector<geometry_msgs::PoseStamped> local_plan = createLocalPlanFromTrajectory(trajectory);
+          publishLocalPlan(local_plan);
+        } else {
+          ROS_WARN("DWA planner failed to produce path.");
+          std::vector<geometry_msgs::PoseStamped> empty_plan;
+          publishGlobalPlan(empty_plan);
+          publishLocalPlan(empty_plan);
         }
         return isOk;
       }

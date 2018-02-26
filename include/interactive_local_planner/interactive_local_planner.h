@@ -40,14 +40,19 @@ public:
     bool setPlan(const std::vector<geometry_msgs::PoseStamped>& plan);
     void initialize(std::string name, tf::TransformListener* tf, costmap_2d::Costmap2DROS* costmap_ros);
 
-    bool dwaComputeVelocityCommands(tf::Stamped<tf::Pose>& global_pose, geometry_msgs::Twist& cmd_vel);
-    bool computeVelocityCommandsIgnoringObstacles(tf::Stamped<tf::Pose>& global_pose, geometry_msgs::Twist& cmd_vel);
+    bool dwaComputeVelocityCommands(tf::Stamped<tf::Pose>& global_pose, geometry_msgs::Twist& cmd_vel, base_local_planner::Trajectory& resulting_trajectory);
+    bool computeVelocityCommandsIgnoringObstacles(tf::Stamped<tf::Pose>& global_pose,
+        geometry_msgs::Twist& cmd_vel, base_local_planner::Trajectory& resulting_trajectory);
 
     bool isInitialized()
     {
         return initialized_;
     }
 private:
+    bool collisionPoseIsFar(const base_local_planner::Trajectory& path_empty_costmap,
+        Eigen::Vector2d& first_collision_pose);
+    std::vector<geometry_msgs::PoseStamped> createLocalPlanFromTrajectory(
+        const base_local_planner::Trajectory& trajectory);
     /**
      * @brief Callback to update the local planner's parameters based on dynamic reconfigure
      */
@@ -90,6 +95,7 @@ private:
     costmap_2d::Costmap2D empty_costmap_;
     base_local_planner::LocalPlannerUtil planner_util_empty_costmap_;
     boost::shared_ptr<dwa_local_planner::DWAPlanner> dp_empty_costmap_;
+    Eigen::Vector2d first_collision_pose_;
 };
 
 }
