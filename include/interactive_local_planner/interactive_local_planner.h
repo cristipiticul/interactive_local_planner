@@ -22,6 +22,10 @@
 
 #include <dwa_local_planner/dwa_planner.h>
 
+#include <sensor_msgs/PointCloud2.h>
+
+#include "interactive_local_planner/obstacle_classifier.h"
+
 namespace interactive_local_planner
 {
 
@@ -96,6 +100,8 @@ private:
     base_local_planner::LocalPlannerUtil planner_util_empty_costmap_;
     boost::shared_ptr<dwa_local_planner::DWAPlanner> dp_empty_costmap_;
     Eigen::Vector2d first_collision_pose_;
+
+    ObstacleClassifier obstacle_classifier_;
 };
 
 }

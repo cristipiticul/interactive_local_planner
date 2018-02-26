@@ -82,10 +82,11 @@ using namespace base_local_planner;
       tf::TransformListener* tf,
       costmap_2d::Costmap2DROS* costmap_ros) {
     if (! isInitialized()) {
-
+      obstacle_classifier_.initialize(name);
       ros::NodeHandle private_nh("~/" + name);
       g_plan_pub_ = private_nh.advertise<nav_msgs::Path>("global_plan", 1);
       l_plan_pub_ = private_nh.advertise<nav_msgs::Path>("local_plan", 1);
+      
       tf_ = tf;
       costmap_ros_ = costmap_ros;
       costmap_ros_->getRobotPose(current_pose_);
@@ -327,8 +328,7 @@ using namespace base_local_planner;
           current_pose_,
           boost::bind(&DWAPlanner::checkTrajectory, current_dp, _1, _2, _3));
     } else {
-      if (current_state_ == RUNNING)
-      {
+      if (current_state_ == RUNNING) {
         Trajectory trajectory;
         Eigen::Vector2d first_collision_pose;
         bool isOk = computeVelocityCommandsIgnoringObstacles(current_pose_, cmd_vel, trajectory);
@@ -344,6 +344,7 @@ using namespace base_local_planner;
           publishLocalPlan(local_plan);
           return true;
         } else {
+          //TODO: find obstacle class and check if it's worth it to wait
           ROS_INFO("Found an obstacle on the path. Waiting for it to move...");
           current_state_ = WAITING_FOR_OBSTACLE_TO_MOVE;
           first_collision_pose_ = first_collision_pose;
@@ -386,7 +387,7 @@ using namespace base_local_planner;
         Eigen::Vector2d current_pose_eigen(current_pose_.getOrigin().getX(), current_pose_.getOrigin().getY());
         double distance = (current_pose_eigen - first_collision_pose_).norm();
         if (distance >= MIN_DISTANCE_AFTER_OBSTACLE) {
-          ROS_DEBUG("The obstacle was avoided successfully! We continue pursuing the trajectory...");
+          ROS_INFO("The obstacle was avoided successfully! We continue pursuing the trajectory...");
           current_state_ = RUNNING;
 
           cmd_vel.linear.x = 0;

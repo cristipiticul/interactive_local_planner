@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   dynamic_reconfigure
   nav_core
   nav_msgs
+  pcl_ros
   pcl_conversions
   pluginlib
   roscpp
@@ -46,13 +47,20 @@ catkin_package(
         roscpp
 )
 
+add_library(obstacle_classifier src/obstacle_classifier.cpp)
+target_link_libraries(obstacle_classifier
+  ${catkin_LIBRARIES}
+)
+
 add_library(interactive_local_planner src/interactive_local_planner.cpp)
 add_dependencies(interactive_local_planner
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   ${catkin_EXPORTED_TARGETS}
+  obstacle_classifier
 )
 target_link_libraries(interactive_local_planner
   ${catkin_LIBRARIES}
+  obstacle_classifier
 )
 
 install(TARGETS interactive_local_planner
