@@ -82,7 +82,7 @@ using namespace base_local_planner;
       tf::TransformListener* tf,
       costmap_2d::Costmap2DROS* costmap_ros) {
     if (! isInitialized()) {
-      obstacle_classifier_.initialize(name);
+      obstacle_classifier_.initialize(name + "/ObstacleClassifier");
       ros::NodeHandle private_nh("~/" + name);
       g_plan_pub_ = private_nh.advertise<nav_msgs::Path>("global_plan", 1);
       l_plan_pub_ = private_nh.advertise<nav_msgs::Path>("local_plan", 1);
@@ -344,11 +344,18 @@ using namespace base_local_planner;
           publishLocalPlan(local_plan);
           return true;
         } else {
-          //TODO: find obstacle class and check if it's worth it to wait
-          ROS_INFO("Found an obstacle on the path. Waiting for it to move...");
-          current_state_ = WAITING_FOR_OBSTACLE_TO_MOVE;
           first_collision_pose_ = first_collision_pose;
-          wait_time_start_ = ros::Time::now();
+          int obstacleId = obstacle_classifier_.classifyObstacle(first_collision_pose_);
+
+          if (obstacleId == -1) {
+            ROS_INFO("InteractiveLocalPlanner: Unrecognized obstacle! Going around it...");
+            current_state_ = GOING_AROUND_OBSTACLE;
+          } else {
+            //TODO: find obstacle class and check if it's worth it to wait
+            ROS_INFO("Found an obstacle on the path. Waiting for it to move...");
+            current_state_ = WAITING_FOR_OBSTACLE_TO_MOVE;
+            wait_time_start_ = ros::Time::now();
+          }
         }
       }
 
