@@ -1,13 +1,18 @@
 #ifndef OBSTACLE_CLASSIFIER_H_
 #define OBSTACLE_CLASSIFIER_H_
-
 #include <ros/ros.h>
-#include <sensor_msgs/PointCloud2.h>
 #include <Eigen/Core>
 #include <tf/transform_listener.h>
 
 namespace interactive_local_planner
 {
+
+struct Obstacle {
+    int id;
+    std::string frame;
+    double move_probability;
+    Eigen::Vector2d position;
+};
 
 class ObstacleClassifier {
 public:
@@ -15,26 +20,21 @@ public:
     ~ObstacleClassifier();
     
     void initialize(std::string name);
-    int classifyObstacle(const Eigen::Vector2d& collided_position_in_map_frame);
+    bool findObstacleCloseTo(const Eigen::Vector2d& collision_position,
+        Obstacle& obstacle);
     bool isInitialized();
 private:
-    void pointCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& msg);
-    bool convertMapToCameraCoordinates(const Eigen::Vector2d& position, Eigen::Vector3d& result);
-
-    std::string cloud_topic_;
+    void getObstaclePoses(std::vector<tf::StampedTransform>& obstacles,
+        std::vector<bool>& obstacles_found);
+    bool findClosestObstacle(const std::vector<tf::StampedTransform>& obstacles,
+        const std::vector<bool>& obstacles_found, const Eigen::Vector2d& search_point,
+        int& min_distance_i, double& min_distance, Eigen::Vector2d& obstacle_position);
     std::string map_frame_;
-    std::string camera_frame_;
-    ros::NodeHandle node_handle_;
-    ros::Subscriber point_cloud_subscriber_;
-    double mean_color_radius_;
-
-    // The XYZ coordinates of the robot where there is a collision, in the camera frame.
-    Eigen::Vector3d collided_pose_;
+    std::vector<std::string> obstacles_frames_;
+    std::vector<double> obstacles_move_probabilities_;
+    double robot_base_radius_;
     
     bool initialized_;
-    volatile bool got_cloud_;
-    volatile bool processed_cloud_;
-    volatile int result_;
 
     tf::TransformListener tf_listener_;
 };

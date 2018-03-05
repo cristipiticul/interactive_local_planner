@@ -22,6 +22,10 @@
 // the obstacle. The distance is measured in meters. The distance is measured from
 // the first robot pose that is in collision with an obstacle.
 #define MIN_DISTANCE_AFTER_OBSTACLE 0.2
+// The minimum probability for which the robot will attempt to wait for it to move.
+// If the obstacle is less likely than this threshold to move, then it will be
+// avoided from the beginning.
+#define MIN_PROBABILITY_TO_WAIT 0.2
 
 PLUGINLIB_EXPORT_CLASS(interactive_local_planner::InteractiveLocalPlanner, nav_core::BaseLocalPlanner)
 
@@ -345,16 +349,18 @@ using namespace base_local_planner;
           return true;
         } else {
           first_collision_pose_ = first_collision_pose;
-          int obstacleId = obstacle_classifier_.classifyObstacle(first_collision_pose_);
 
-          if (obstacleId == -1) {
-            ROS_INFO("InteractiveLocalPlanner: Unrecognized obstacle! Going around it...");
-            current_state_ = GOING_AROUND_OBSTACLE;
-          } else {
+          Obstacle obstacle;
+          bool obstacle_found = obstacle_classifier_.findObstacleCloseTo(first_collision_pose_, obstacle);
+
+          if (obstacle_found && obstacle.move_probability >= MIN_PROBABILITY_TO_WAIT) {
             //TODO: find obstacle class and check if it's worth it to wait
             ROS_INFO("Found an obstacle on the path. Waiting for it to move...");
             current_state_ = WAITING_FOR_OBSTACLE_TO_MOVE;
             wait_time_start_ = ros::Time::now();
+          } else {
+            ROS_INFO("InteractiveLocalPlanner: Obstacle is not likely to move... Going around it.");
+            current_state_ = GOING_AROUND_OBSTACLE;
           }
         }
       }
@@ -369,6 +375,7 @@ using namespace base_local_planner;
         }
         if (isOk) {
           ROS_INFO("The obstacle moved! We continue pursuing the trajectory...");
+          //TODO: update obstacle probability
           current_state_ = RUNNING;
           return true;
         }
@@ -385,6 +392,7 @@ using namespace base_local_planner;
           return true;
         } else {
           ROS_INFO("The obstacle did not move. Going around it...");
+          //TODO: update obstacle probability
           current_state_ = GOING_AROUND_OBSTACLE;
         }
       }

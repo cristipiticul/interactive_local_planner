@@ -1,5 +1,6 @@
 <launch>
   <arg name="3d_sensor" default="$(env TURTLEBOT_3D_SENSOR)"/>
+  <arg name="mock_obstacle" default="true"/>
 
   <!-- Map server -->
   <arg name="map_file" default="$(find interactive_local_planner)/map/sim/map.yaml"/>
@@ -22,4 +23,6 @@
   <!-- RViz -->
   <node name="rviz" pkg="rviz" type="rviz" args="-d $(find interactive_local_planner)/rviz/navigation.rviz"/>
 
+  <node if="$(arg mock_obstacle)" name="obstacle_static_tf_pub" pkg="tf" type="static_transform_publisher"
+    args="-0.4 1.2 0 0 0 0 map marker_1 100"/>
 </launch>

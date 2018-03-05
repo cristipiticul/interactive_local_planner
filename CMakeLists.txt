@@ -12,8 +12,6 @@ find_package(catkin REQUIRED COMPONENTS
   dynamic_reconfigure
   nav_core
   nav_msgs
-  pcl_ros
-  pcl_conversions
   pluginlib
   roscpp
   tf
@@ -26,13 +24,11 @@ find_package(catkin REQUIRED COMPONENTS
 
 ## System dependencies are found with CMake's conventions
 find_package(Eigen3 REQUIRED)
-find_package(PCL REQUIRED)
 remove_definitions(-DDISABLE_LIBUSB-1.0)
 include_directories(
     include
     ${catkin_INCLUDE_DIRS}
     ${EIGEN3_INCLUDE_DIRS}
-    ${PCL_INCLUDE_DIRS}
     )
 add_definitions(${EIGEN3_DEFINITIONS})
 

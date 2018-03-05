@@ -1,0 +1,5 @@
+ObstacleClassifier:
+  obstacles_frames: [marker_1, marker_2]
+  obstacles_move_probabilities: [0.5, 0.5]
+  map_frame: map
+  robot_base_radius: 0.2 # must be the same with the one in costmap_common_params.yaml
