@@ -125,36 +125,36 @@ using namespace base_local_planner;
       dsrv_->setCallback(cb);
     }
     else{
-      ROS_WARN("This planner has already been initialized, doing nothing.");
+      ROS_WARN("InteractiveLocalPlanner: This planner has already been initialized, doing nothing.");
     }
   }
   
   bool InteractiveLocalPlanner::setPlan(const std::vector<geometry_msgs::PoseStamped>& orig_global_plan) {
     if (! isInitialized()) {
-      ROS_ERROR("This planner has not been initialized, please call initialize() before using this planner");
+      ROS_ERROR("InteractiveLocalPlanner: This planner has not been initialized, please call initialize() before using this planner");
       return false;
     }
     //when we get a new plan, we also want to clear any latch we may have on goal tolerances
     latchedStopRotateController_.resetLatching();
 
-    ROS_INFO("Got new plan");
+    ROS_INFO("InteractiveLocalPlanner: Got new plan");
     return dp_->setPlan(orig_global_plan) && dp_empty_costmap_->setPlan(orig_global_plan);
   }
 
   bool InteractiveLocalPlanner::isGoalReached() {
     if (! isInitialized()) {
-      ROS_ERROR("This planner has not been initialized, please call initialize() before using this planner");
+      ROS_ERROR("InteractiveLocalPlanner: This planner has not been initialized, please call initialize() before using this planner");
       return false;
     }
     if ( ! costmap_ros_->getRobotPose(current_pose_)) {
-      ROS_ERROR("Could not get robot pose");
+      ROS_ERROR("InteractiveLocalPlanner: Could not get robot pose");
       return false;
     }
 
     // TODO: check: this was the initial line:
     // if(latchedStopRotateController_.isGoalReached(&planner_util_, odom_helper_, current_pose_)) {
     if(latchedStopRotateController_.isGoalReached(&planner_util_empty_costmap_, odom_helper_, current_pose_)) {
-      ROS_INFO("Goal reached");
+      ROS_INFO("InteractiveLocalPlanner: Goal reached");
       return true;
     } else {
       return false;
@@ -182,7 +182,7 @@ using namespace base_local_planner;
   {
     // dynamic window sampling approach to get useful velocity commands
     if(! isInitialized()){
-      ROS_ERROR("This planner has not been initialized, please call initialize() before using this planner");
+      ROS_ERROR("InteractiveLocalPlanner: This planner has not been initialized, please call initialize() before using this planner");
       return false;
     }
 
@@ -208,7 +208,7 @@ using namespace base_local_planner;
   {
     // dynamic window sampling approach to get useful velocity commands
     if(! isInitialized()){
-      ROS_ERROR("This planner has not been initialized, please call initialize() before using this planner");
+      ROS_ERROR("InteractiveLocalPlanner: This planner has not been initialized, please call initialize() before using this planner");
       return false;
     }
 
@@ -280,11 +280,15 @@ using namespace base_local_planner;
 
 
   bool InteractiveLocalPlanner::computeVelocityCommands(geometry_msgs::Twist& cmd_vel) {
+    ROS_INFO("@InteractiveLocalPlanner: Got computeVelocityCommands call!");
+
     // dispatches to either dwa sampling control or stop and rotate control, depending on whether we have been close enough to goal
     if ( ! costmap_ros_->getRobotPose(current_pose_)) {
-      ROS_ERROR("Could not get robot pose");
+      ROS_ERROR("InteractiveLocalPlanner: Could not get robot pose");
       return false;
     }
+
+    ROS_INFO("@InteractiveLocalPlanner: Got pose!");
 
     base_local_planner::LocalPlannerUtil* current_planner_util;
     boost::shared_ptr<dwa_local_planner::DWAPlanner> current_dp;
@@ -301,21 +305,23 @@ using namespace base_local_planner;
 
     std::vector<geometry_msgs::PoseStamped> transformed_plan;
     if ( !current_planner_util->getLocalPlan(current_pose_, transformed_plan)) {
-      ROS_ERROR("Could not get local plan");
+      ROS_ERROR("InteractiveLocalPlanner: Could not get local plan");
       return false;
     }
 
     //if the global plan passed in is empty... we won't do anything
     if(transformed_plan.empty()) {
-      ROS_WARN("Received an empty transformed plan.");
+      ROS_WARN("InteractiveLocalPlanner: Received an empty transformed plan.");
       return false;
     }
-    ROS_DEBUG("Received a transformed plan with %zu points.", transformed_plan.size());
+    ROS_DEBUG("InteractiveLocalPlanner: Received a transformed plan with %zu points.", transformed_plan.size());
 
     // update plan in dwa_planner even if we just stop and rotate, to allow checkTrajectory
     dp_->updatePlanAndLocalCosts(current_pose_, transformed_plan);
     dp_empty_costmap_->updatePlanAndLocalCosts(current_pose_, transformed_plan);
     
+    ROS_INFO("@InteractiveLocalPlanner: WOhoo! got here!");
+
     if (latchedStopRotateController_.isPositionReached(current_planner_util, current_pose_)) {
       //publish an empty plan because we've reached our goal position
       std::vector<geometry_msgs::PoseStamped> local_plan;
@@ -332,16 +338,20 @@ using namespace base_local_planner;
           current_pose_,
           boost::bind(&DWAPlanner::checkTrajectory, current_dp, _1, _2, _3));
     } else {
+      ROS_INFO("@InteractiveLocalPlanner: Shit is getting serious");
       if (current_state_ == RUNNING) {
+        ROS_INFO("@InteractiveLocalPlanner: Running running running running (Adele)");
         Trajectory trajectory;
         Eigen::Vector2d first_collision_pose;
         bool isOk = computeVelocityCommandsIgnoringObstacles(current_pose_, cmd_vel, trajectory);
+        ROS_INFO("@InteractiveLocalPlanner: Got traj");
         if (!isOk && collisionPoseIsFar(trajectory, first_collision_pose)) {
           isOk = true;
         }
+        ROS_INFO("@InteractiveLocalPlanner: Wohoo almost done");
 
         if (isOk) {
-          ROS_DEBUG("A valid velocity command of (%.2f, %.2f, %.2f) was found for this cycle.", 
+          ROS_INFO("@InteractiveLocalPlanner: A valid velocity command of (%.2f, %.2f, %.2f) was found for this cycle.", 
                       cmd_vel.linear.x, cmd_vel.linear.y, cmd_vel.angular.z);
           publishGlobalPlan(transformed_plan);
           std::vector<geometry_msgs::PoseStamped> local_plan = createLocalPlanFromTrajectory(trajectory);
@@ -355,7 +365,7 @@ using namespace base_local_planner;
 
           if (obstacle_found && obstacle.move_probability >= MIN_PROBABILITY_TO_WAIT) {
             //TODO: find obstacle class and check if it's worth it to wait
-            ROS_INFO("Found an obstacle on the path. Waiting for it to move...");
+            ROS_INFO("InteractiveLocalPlanner: Found an obstacle on the path. Waiting for it to move...");
             current_state_ = WAITING_FOR_OBSTACLE_TO_MOVE;
             wait_time_start_ = ros::Time::now();
           } else {
@@ -374,7 +384,7 @@ using namespace base_local_planner;
           isOk = true;
         }
         if (isOk) {
-          ROS_INFO("The obstacle moved! We continue pursuing the trajectory...");
+          ROS_INFO("InteractiveLocalPlanner: The obstacle moved! We continue pursuing the trajectory...");
           //TODO: update obstacle probability
           current_state_ = RUNNING;
           return true;
@@ -391,7 +401,7 @@ using namespace base_local_planner;
 
           return true;
         } else {
-          ROS_INFO("The obstacle did not move. Going around it...");
+          ROS_INFO("InteractiveLocalPlanner: The obstacle did not move. Going around it...");
           //TODO: update obstacle probability
           current_state_ = GOING_AROUND_OBSTACLE;
         }
@@ -402,7 +412,7 @@ using namespace base_local_planner;
         Eigen::Vector2d current_pose_eigen(current_pose_.getOrigin().getX(), current_pose_.getOrigin().getY());
         double distance = (current_pose_eigen - first_collision_pose_).norm();
         if (distance >= MIN_DISTANCE_AFTER_OBSTACLE) {
-          ROS_INFO("The obstacle was avoided successfully! We continue pursuing the trajectory...");
+          ROS_INFO("InteractiveLocalPlanner: The obstacle was avoided successfully! We continue pursuing the trajectory...");
           current_state_ = RUNNING;
 
           cmd_vel.linear.x = 0;
@@ -421,7 +431,7 @@ using namespace base_local_planner;
           std::vector<geometry_msgs::PoseStamped> local_plan = createLocalPlanFromTrajectory(trajectory);
           publishLocalPlan(local_plan);
         } else {
-          ROS_WARN("DWA planner failed to produce path.");
+          ROS_WARN("InteractiveLocalPlanner: DWA planner failed to produce path.");
           std::vector<geometry_msgs::PoseStamped> empty_plan;
           publishGlobalPlan(empty_plan);
           publishLocalPlan(empty_plan);

@@ -2,9 +2,6 @@
     ROS navigation stack with velocity smoother and safety (reactive) controller
 -->
 <launch>
-  <include file="$(find turtlebot_navigation)/launch/includes/velocity_smoother.launch.xml"/>
-  <include file="$(find turtlebot_navigation)/launch/includes/safety_controller.launch.xml"/>
-  
   <arg name="odom_frame_id"   default="odom"/>
   <arg name="base_frame_id"   default="base_footprint"/>
   <arg name="global_frame_id" default="map"/>
@@ -19,6 +16,7 @@
     <rosparam file="$(find interactive_local_planner)/param/global_costmap_params.yaml" command="load" />
     <rosparam file="$(find interactive_local_planner)/param/interactive_local_planner_params.yaml" command="load" />
     <rosparam file="$(find interactive_local_planner)/param/obstacle_classifier_params.yaml" command="load" ns="InteractiveLocalPlanner" />
+    <rosparam file="$(find interactive_local_planner)/param/obstacles.yaml" ns="InteractiveLocalPlanner/ObstacleClassifier"/>
     <rosparam file="$(find interactive_local_planner)/param/interactive_local_planner_empty_costmap_params.yaml" command="load" />
     <rosparam file="$(find interactive_local_planner)/param/move_base_params.yaml" command="load" />
     <rosparam file="$(find interactive_local_planner)/param/global_planner_params.yaml" command="load" />

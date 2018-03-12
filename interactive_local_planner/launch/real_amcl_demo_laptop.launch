@@ -1,0 +1,8 @@
+<launch>
+  <!-- Move base -->
+  <include file="$(find interactive_local_planner)/launch/includes/move_base.launch"/>
+  
+  <!-- RViz -->
+  <node name="rviz" pkg="rviz" type="rviz" args="-d $(find interactive_local_planner)/rviz/navigation.rviz"/>
+
+</launch>

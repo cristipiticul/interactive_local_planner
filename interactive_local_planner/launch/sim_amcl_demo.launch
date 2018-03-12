@@ -2,9 +2,16 @@
   <arg name="3d_sensor" default="$(env TURTLEBOT_3D_SENSOR)"/>
   <arg name="mock_obstacle" default="true"/>
 
+  <include file="$(find turtlebot_gazebo)/launch/turtlebot_world.launch">
+    <arg name="gui" value="false"/>
+  </include>
+
   <!-- Map server -->
   <arg name="map_file" default="$(find interactive_local_planner)/map/sim/map.yaml"/>
   <node name="map_server" pkg="map_server" type="map_server" args="$(arg map_file)" />
+
+  <include file="$(find turtlebot_navigation)/launch/includes/velocity_smoother.launch.xml"/>
+  <include file="$(find turtlebot_navigation)/launch/includes/safety_controller.launch.xml"/>
 
   <!-- AMCL -->
   <arg name="custom_amcl_launch_file" default="$(find turtlebot_navigation)/launch/includes/amcl/$(arg 3d_sensor)_amcl.launch.xml"/>

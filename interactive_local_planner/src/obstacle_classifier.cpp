@@ -20,6 +20,7 @@ void ObstacleClassifier::initialize(string node_name) {
     if (!isInitialized()) {
         NodeHandle private_node_handle("~/" + node_name);
         bool ok = true;
+        
         if (!private_node_handle.getParam("obstacles_frames", obstacles_frames_)) {
             ROS_ERROR("ObstacleClassifier: No obstacles frames provided! Please set the %s/obstacles_frames parameter.",
                 node_name.c_str());
@@ -30,6 +31,12 @@ void ObstacleClassifier::initialize(string node_name) {
                 node_name.c_str());
             ok = false;
         }
+        if (obstacles_frames_.size() != obstacles_move_probabilities_.size()) {
+            ROS_ERROR("ObstacleClassifier: the number of obstacle frames (%lu) != the number of move probabilities (%lu). Please check the %s/obstacles_frames and %s/obstacles_move_probabilities parameters!",
+                obstacles_frames_.size(), obstacles_move_probabilities_.size(), node_name.c_str(), node_name.c_str());
+            ok = false;
+        }
+        
         if (!private_node_handle.getParam("map_frame", map_frame_)) {
             ROS_ERROR("ObstacleClassifier: No map frame provided! Please set the %s/map_frame parameter.",
                 node_name.c_str());
