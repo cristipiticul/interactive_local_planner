@@ -26,4 +26,12 @@
     <arg name="initial_pose_y" value="$(arg initial_pose_y)"/>
     <arg name="initial_pose_a" value="$(arg initial_pose_a)"/>
   </include>
+
+  <!-- ALVAR - AR marker detection -->
+  <include file="$(find ar_track_alvar)/launch/pr2_indiv_no_kinect.launch">
+    <arg name="marker_size" value="4.45"/>
+    <arg name="cam_image_topic" value="/camera/rgb/image_raw"/>
+    <arg name="cam_info_topic" value="/camera/rgb/camera_info"/>
+    <arg name="output_frame" value="/base_footprint"/>
+  </include>
 </launch>

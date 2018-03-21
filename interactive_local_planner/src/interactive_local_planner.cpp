@@ -280,15 +280,11 @@ using namespace base_local_planner;
 
 
   bool InteractiveLocalPlanner::computeVelocityCommands(geometry_msgs::Twist& cmd_vel) {
-    ROS_INFO("@InteractiveLocalPlanner: Got computeVelocityCommands call!");
-
     // dispatches to either dwa sampling control or stop and rotate control, depending on whether we have been close enough to goal
     if ( ! costmap_ros_->getRobotPose(current_pose_)) {
       ROS_ERROR("InteractiveLocalPlanner: Could not get robot pose");
       return false;
     }
-
-    ROS_INFO("@InteractiveLocalPlanner: Got pose!");
 
     base_local_planner::LocalPlannerUtil* current_planner_util;
     boost::shared_ptr<dwa_local_planner::DWAPlanner> current_dp;
@@ -320,8 +316,6 @@ using namespace base_local_planner;
     dp_->updatePlanAndLocalCosts(current_pose_, transformed_plan);
     dp_empty_costmap_->updatePlanAndLocalCosts(current_pose_, transformed_plan);
     
-    ROS_INFO("@InteractiveLocalPlanner: WOhoo! got here!");
-
     if (latchedStopRotateController_.isPositionReached(current_planner_util, current_pose_)) {
       //publish an empty plan because we've reached our goal position
       std::vector<geometry_msgs::PoseStamped> local_plan;
@@ -338,20 +332,16 @@ using namespace base_local_planner;
           current_pose_,
           boost::bind(&DWAPlanner::checkTrajectory, current_dp, _1, _2, _3));
     } else {
-      ROS_INFO("@InteractiveLocalPlanner: Shit is getting serious");
       if (current_state_ == RUNNING) {
-        ROS_INFO("@InteractiveLocalPlanner: Running running running running (Adele)");
         Trajectory trajectory;
         Eigen::Vector2d first_collision_pose;
         bool isOk = computeVelocityCommandsIgnoringObstacles(current_pose_, cmd_vel, trajectory);
-        ROS_INFO("@InteractiveLocalPlanner: Got traj");
         if (!isOk && collisionPoseIsFar(trajectory, first_collision_pose)) {
           isOk = true;
         }
-        ROS_INFO("@InteractiveLocalPlanner: Wohoo almost done");
-
+        
         if (isOk) {
-          ROS_INFO("@InteractiveLocalPlanner: A valid velocity command of (%.2f, %.2f, %.2f) was found for this cycle.", 
+          ROS_DEBUG("InteractiveLocalPlanner: A valid velocity command of (%.2f, %.2f, %.2f) was found for this cycle.", 
                       cmd_vel.linear.x, cmd_vel.linear.y, cmd_vel.angular.z);
           publishGlobalPlan(transformed_plan);
           std::vector<geometry_msgs::PoseStamped> local_plan = createLocalPlanFromTrajectory(trajectory);
