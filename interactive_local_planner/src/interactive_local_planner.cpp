@@ -12,16 +12,18 @@
 #include <base_local_planner/obstacle_cost_function.h>
 #include <nav_msgs/Path.h>
 
+//TODO: put these in interactive_local_planner_params.yaml file
+
 // Threshold distance (in meters). If the robot is closer than this value to
 // a colliding pose (a pose in which the robot is in collision with an obstacle),
 // the robot stops.
-#define MIN_DISTANCE_TO_FIRST_OBSTACLE 0.1
+#define MIN_DISTANCE_TO_FIRST_OBSTACLE 0.3
 // Waiting time (in seconds) for the obstacle to move
 #define WAIT_FOR_OBSTACLE_TO_MOVE_TIME 5.0
 // The minimum distance after which we consider the robot has successfully avoided
 // the obstacle. The distance is measured in meters. The distance is measured from
 // the first robot pose that is in collision with an obstacle.
-#define MIN_DISTANCE_AFTER_OBSTACLE 0.2
+#define MIN_DISTANCE_AFTER_OBSTACLE 0.4
 // The minimum probability for which the robot will attempt to wait for it to move.
 // If the obstacle is less likely than this threshold to move, then it will be
 // avoided from the beginning.
@@ -86,7 +88,6 @@ using namespace base_local_planner;
       tf::TransformListener* tf,
       costmap_2d::Costmap2DROS* costmap_ros) {
     if (! isInitialized()) {
-      obstacle_classifier_.initialize(name + "/ObstacleClassifier");
       ros::NodeHandle private_nh("~/" + name);
       g_plan_pub_ = private_nh.advertise<nav_msgs::Path>("global_plan", 1);
       l_plan_pub_ = private_nh.advertise<nav_msgs::Path>("local_plan", 1);
@@ -97,6 +98,8 @@ using namespace base_local_planner;
 
       // make sure to update the costmap we'll use for this cycle
       costmap_2d::Costmap2D* costmap = costmap_ros_->getCostmap();
+
+      obstacle_classifier_.initialize(name + "/ObstacleClassifier", costmap_ros_->getGlobalFrameID());
 
       // Copy the costmap, but clear the contents
       empty_costmap_ = *costmap;
@@ -230,7 +233,10 @@ using namespace base_local_planner;
     cmd_vel.angular.z = tf::getYaw(drive_cmds.getRotation());
 
     // check if the path collides with obstacles
-    bool path_is_valid = obstacle_cost_function_->scoreTrajectory(resulting_trajectory) >= 0;
+    // scoreTrajectory will check in each trajectory point if any line of the robot footprint
+    // intersects any obstacle in the costmap (the interior of the robot is not checked!)
+    // see navigation/base_local_planner/src/costmap_model.cpp -> footprintCost function
+    bool path_is_valid = (obstacle_cost_function_->scoreTrajectory(resulting_trajectory) >= 0);
     return path_is_valid;
   }
 

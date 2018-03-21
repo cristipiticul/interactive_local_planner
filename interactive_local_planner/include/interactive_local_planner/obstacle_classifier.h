@@ -19,7 +19,7 @@ public:
     ObstacleClassifier();
     ~ObstacleClassifier();
     
-    void initialize(std::string name);
+    void initialize(std::string name, std::string robot_position_frame);
     bool findObstacleCloseTo(const Eigen::Vector2d& collision_position,
         Obstacle& obstacle);
     bool isInitialized();
@@ -29,10 +29,11 @@ private:
     bool findClosestObstacle(const std::vector<tf::StampedTransform>& obstacles,
         const std::vector<bool>& obstacles_found, const Eigen::Vector2d& search_point,
         int& min_distance_i, double& min_distance, Eigen::Vector2d& obstacle_position);
-    std::string map_frame_;
+    std::string robot_position_frame_;
     std::vector<std::string> obstacles_frames_;
     std::vector<double> obstacles_move_probabilities_;
     double robot_base_radius_;
+    double max_additional_distance_;
     
     bool initialized_;
 

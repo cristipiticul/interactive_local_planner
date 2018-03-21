@@ -1,2 +1,2 @@
-obstacles_frames: [marker_1, marker_2]
+obstacles_frames: [ar_marker_11, ar_marker_12]
 obstacles_move_probabilities: [0.5, 0.5]

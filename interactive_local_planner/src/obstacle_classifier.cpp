@@ -16,7 +16,7 @@ ObstacleClassifier::ObstacleClassifier(): initialized_(false) {
 ObstacleClassifier::~ObstacleClassifier() {
 }
 
-void ObstacleClassifier::initialize(string node_name) {
+void ObstacleClassifier::initialize(string node_name, string robot_position_frame) {
     if (!isInitialized()) {
         NodeHandle private_node_handle("~/" + node_name);
         bool ok = true;
@@ -37,16 +37,19 @@ void ObstacleClassifier::initialize(string node_name) {
             ok = false;
         }
         
-        if (!private_node_handle.getParam("map_frame", map_frame_)) {
-            ROS_ERROR("ObstacleClassifier: No map frame provided! Please set the %s/map_frame parameter.",
-                node_name.c_str());
-            ok = false;
-        }
         if (!private_node_handle.getParam("robot_base_radius", robot_base_radius_)) {
             ROS_ERROR("ObstacleClassifier: No robot base radius provided! Please set the %s/robot_base_radius parameter.",
                 node_name.c_str());
             ok = false;
         }
+
+        if (!private_node_handle.getParam("max_additional_distance", max_additional_distance_)) {
+            ROS_ERROR("ObstacleClassifier: No maximum additional distance provided! Please set the %s/max_additional_distance parameter.",
+                node_name.c_str());
+            ok = false;
+        }
+        
+        robot_position_frame_ = robot_position_frame;
         initialized_ = ok;
     } else {
         ROS_WARN("ObjectClassifier is already initialized! Doing nothing.");
@@ -67,11 +70,13 @@ bool ObstacleClassifier::findObstacleCloseTo(const Eigen::Vector2d& collision_po
     Eigen::Vector2d obstacle_position;
 
     getObstaclePoses(obstacles, obstacles_found);
-    
+
     bool found = findClosestObstacle(obstacles, obstacles_found, collision_position,
         min_distance_i, min_distance, obstacle_position);
+
+    ROS_DEBUG("Min distance to obstacle: %f", min_distance);
     
-    if (found && min_distance < robot_base_radius_) {
+    if (found && min_distance < robot_base_radius_ + max_additional_distance_) {
         obstacle.id = min_distance_i;
         obstacle.frame = obstacles_frames_[min_distance_i];
         obstacle.position = obstacle_position;
@@ -90,12 +95,12 @@ void ObstacleClassifier::getObstaclePoses(vector<StampedTransform>& obstacles,
     obstacles_found.resize(obstacles_frames_.size());
     for (size_t i = 0; i < obstacles_frames_.size(); i++) {
         try {
-            tf_listener_.waitForTransform(map_frame_, obstacles_frames_[i], now, TF_TIMEOUT);
-            tf_listener_.lookupTransform(map_frame_, obstacles_frames_[i], now, obstacles[i]);
+            tf_listener_.waitForTransform(robot_position_frame_, obstacles_frames_[i], now, TF_TIMEOUT);
+            tf_listener_.lookupTransform(robot_position_frame_, obstacles_frames_[i], now, obstacles[i]);
             obstacles_found[i] = true;
         } catch (TransformException ex) {
-            ROS_DEBUG("ObstacleClassifier: could not retrieve transform \"%s\"->\"%s\". Error: %s", obstacles_frames_[i].c_str(), map_frame_.c_str(), ex.what());
-            ROS_DEBUG("This probably means the camera does not see the marker (it's ok)");
+            ROS_INFO("ObstacleClassifier: could not retrieve transform \"%s\"->\"%s\". Error: %s", obstacles_frames_[i].c_str(), robot_position_frame_.c_str(), ex.what());
+            ROS_INFO("This probably means the camera does not see the marker (it's ok)");
             obstacles_found[i] = false;
         }
     }
