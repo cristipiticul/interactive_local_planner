@@ -31,7 +31,7 @@ namespace interactive_local_planner
 
 enum InteractiveLocalPlannerState
 {
-    RUNNING, WAITING_FOR_OBSTACLE_TO_MOVE, GOING_AROUND_OBSTACLE
+    RUNNING, WAITING_FOR_OBSTACLE_TO_MOVE, GOING_BACK_AND_FORTH, GOING_AROUND_OBSTACLE
 };
 
 class InteractiveLocalPlanner: public nav_core::BaseLocalPlanner
@@ -94,7 +94,9 @@ private:
 
     InteractiveLocalPlannerState current_state_;
     // If the robot encounters an obstacle, it records the first time the obstacle is met.
-    ros::Time wait_time_start_;
+    ros::Time wait_start_time_;
+    ros::Time going_back_and_forth_start_time_;
+
     boost::shared_ptr<base_local_planner::ObstacleCostFunction> obstacle_cost_function_;
     costmap_2d::Costmap2D empty_costmap_;
     base_local_planner::LocalPlannerUtil planner_util_empty_costmap_;

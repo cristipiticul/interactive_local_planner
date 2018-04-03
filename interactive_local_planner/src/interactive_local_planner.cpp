@@ -29,6 +29,9 @@
 // avoided from the beginning.
 #define MIN_PROBABILITY_TO_WAIT 0.2
 
+#define GOING_BACK_AND_FORTH_TIME 0.5
+#define GOING_BACK_AND_FORTH_VELOCITY 0.2
+
 PLUGINLIB_EXPORT_CLASS(interactive_local_planner::InteractiveLocalPlanner, nav_core::BaseLocalPlanner)
 
 namespace interactive_local_planner
@@ -358,17 +361,39 @@ using namespace base_local_planner;
 
           Obstacle obstacle;
           bool obstacle_found = obstacle_classifier_.findObstacleCloseTo(first_collision_pose_, obstacle);
-
+          //TODO: find a better condition here
           if (obstacle_found && obstacle.move_probability >= MIN_PROBABILITY_TO_WAIT) {
-            //TODO: find obstacle class and check if it's worth it to wait
-            ROS_INFO("InteractiveLocalPlanner: Found an obstacle on the path. Waiting for it to move...");
-            current_state_ = WAITING_FOR_OBSTACLE_TO_MOVE;
-            wait_time_start_ = ros::Time::now();
+            ROS_INFO("InteractiveLocalPlanner: Found an obstacle on the path. Moving back and forth...");
+            current_state_ = GOING_BACK_AND_FORTH;
+            going_back_and_forth_start_time_ = ros::Time::now();
           } else {
             ROS_INFO("InteractiveLocalPlanner: Obstacle is not likely to move... Going around it.");
             current_state_ = GOING_AROUND_OBSTACLE;
           }
         }
+      }
+
+      if (current_state_ == GOING_BACK_AND_FORTH) {
+        ros::Duration going_back_and_forth_duration = ros::Time::now() - going_back_and_forth_start_time_;
+        if (going_back_and_forth_duration <= ros::Duration(GOING_BACK_AND_FORTH_TIME)) {
+          if (int(going_back_and_forth_duration.toSec() / 4.0) % 2 == 0) {
+            // going back
+            cmd_vel.linear.x = -GOING_BACK_AND_FORTH_VELOCITY;
+            cmd_vel.linear.y = 0;
+            cmd_vel.angular.z = 0;
+          } else {
+            // going forth
+            cmd_vel.linear.x = GOING_BACK_AND_FORTH_VELOCITY;
+            cmd_vel.linear.y = 0;
+            cmd_vel.angular.z = 0;
+          }
+          return true;
+        } else {
+          ROS_INFO("InteractiveLocalPlanner: Waiting for obstacle to move...");
+          current_state_ = WAITING_FOR_OBSTACLE_TO_MOVE;
+          wait_start_time_ = ros::Time::now();
+        }
+
       }
 
       if (current_state_ == WAITING_FOR_OBSTACLE_TO_MOVE) {
@@ -386,7 +411,7 @@ using namespace base_local_planner;
           return true;
         }
 
-        if (ros::Time::now() - wait_time_start_ <= ros::Duration(WAIT_FOR_OBSTACLE_TO_MOVE_TIME)) {
+        if (ros::Time::now() - wait_start_time_ <= ros::Duration(WAIT_FOR_OBSTACLE_TO_MOVE_TIME)) {
           cmd_vel.linear.x = 0;
           cmd_vel.linear.y = 0;
           cmd_vel.angular.z = 0;
