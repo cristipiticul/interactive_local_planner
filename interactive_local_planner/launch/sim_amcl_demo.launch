@@ -1,6 +1,5 @@
 <launch>
   <arg name="3d_sensor" default="$(env TURTLEBOT_3D_SENSOR)"/>
-  <arg name="mock_obstacle" default="true"/>
 
   <include file="$(find turtlebot_gazebo)/launch/turtlebot_world.launch">
     <arg name="gui" value="false"/>
@@ -30,6 +29,6 @@
   <!-- RViz -->
   <node name="rviz" pkg="rviz" type="rviz" args="-d $(find interactive_local_planner)/rviz/navigation.rviz"/>
 
-  <node if="$(arg mock_obstacle)" name="obstacle_static_tf_pub" pkg="tf" type="static_transform_publisher"
-    args="-0.4 1.2 0 0 0 0 map marker_1 100"/>
+  <node name="moving_obstacle_spawner" pkg="gazebo_ros" type="spawn_model" output="screen"
+    args="-file $(find interactive_local_planner_simulated_obstacle)/models/moving_obstacle/model.sdf -sdf -x 0 -y 0 -z 1.0 -model moving_obstacle" />
 </launch>
