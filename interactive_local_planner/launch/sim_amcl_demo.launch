@@ -1,9 +1,11 @@
 <launch>
   <arg name="3d_sensor" default="$(env TURTLEBOT_3D_SENSOR)"/>
   <arg name="gazebo_gui" default="false"/>
+  <arg name="spawn_obstacles" default="true"/>
 
   <include file="$(find turtlebot_gazebo)/launch/turtlebot_world.launch">
     <arg name="gui" value="$(arg gazebo_gui)"/>
+    <arg name="world_file" value="$(find interactive_local_planner)/worlds/room.world"/>
   </include>
 
   <!-- Map server -->
@@ -30,22 +32,6 @@
   <!-- RViz -->
   <node name="rviz" pkg="rviz" type="rviz" args="-d $(find interactive_local_planner)/rviz/navigation.rviz"/>
 
-  <arg name="moving_obstacle_model_name" value="moving_obstacle"/>
-  <node name="moving_obstacle_spawner" pkg="gazebo_ros" type="spawn_model" output="screen"
-    args="-file $(find interactive_local_planner_simulated_obstacle)/models/moving_obstacle/model.sdf -sdf -x -1.0 -y 0 -z 0.3 -Y 1.5757 -model $(arg moving_obstacle_model_name)" />
-  
-  <node name="obstacle_controller" pkg="interactive_local_planner_simulated_obstacle"
-    type="obstacle_controller.py" output="screen">
-    <!-- The obstacle moves if the robot gets closer than this. -->
-    <param name="distance_threshold" value="0.6"/>
-    <!-- The distance between robot and obstacle is determined using these links -->
-    <param name="robot_link" value="mobile_base::base_footprint"/>
-    <param name="obstacle_link" value="$(arg moving_obstacle_model_name)::chassis"/>
-    <!-- Which joints to move when the robot gets close -->
-    <param name="joints_to_move" value='["$(arg moving_obstacle_model_name)::left_wheel_hinge", "$(arg moving_obstacle_model_name)::right_wheel_hinge"]'/>
-
-    <!-- The obstacle_link's position will be published to TF -->
-    <param name="robot_tf_frame" value="base_footprint"/> <!-- Must match robot_link param -->
-    <param name="published_tf_frame" value="ar_marker_11"/>
-  </node>
+  <!-- Obstacles -->
+  <include if="$(arg spawn_obstacles)" file="$(find interactive_local_planner)/launch/includes/obstacles_spawner.launch"/>
 </launch>

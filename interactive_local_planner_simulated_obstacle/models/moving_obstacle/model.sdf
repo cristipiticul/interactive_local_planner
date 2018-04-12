@@ -3,8 +3,10 @@
 <sdf version='1.4'>
     <model name="moving_obstacle">
         <static>false</static>
-
         <link name='chassis'>
+            <inertial>
+                <mass>1.0</mass>
+            </inertial>
             <pose>0 0 .2 0 0 0</pose>
                 <collision name='collision'>
                 <geometry>

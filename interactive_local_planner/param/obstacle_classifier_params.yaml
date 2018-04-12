@@ -4,4 +4,4 @@ ObstacleClassifier:
   # Let "dist" be the distance from the first collision pose to a detected obstacle.
   # If dist < robot_base_radius + max_additional_distance, then we consider that
   # the collision pose corresponds to the detected obstacle.
-  max_additional_distance: 0.15
+  max_additional_distance: 0.3

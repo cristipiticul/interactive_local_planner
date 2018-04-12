@@ -18,6 +18,8 @@ def main():
     
     rospy.loginfo('obstacle_controller: Robot link: %s' % (robot_link,))
     rospy.loginfo('obstacle_controller: Obstacle link: %s' % (obstacle_link,))
+    rospy.loginfo('obstacle_controller: Robot TF frame: %s' % (robot_tf_frame,))
+    rospy.loginfo('obstacle_controller: Obstacle (published) TF frame: %s' % (published_tf_frame,))
     rospy.loginfo('obstacle_controller: Distance threshold: %f' % (distance_threshold,))
     rospy.loginfo('obstacle_controller: Joints to move: %s' % (str(joints_to_move),))
     

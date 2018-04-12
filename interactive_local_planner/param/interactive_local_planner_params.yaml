@@ -1,4 +1,9 @@
 InteractiveLocalPlanner:
+  min_distance_to_obstacle: 0.2
+  time_to_wait_for_obstacle_to_move: 2.0
+  distance_after_which_obstacle_is_avoided: 0.5
+  min_probability_to_wait: 0.2
+
 # Robot Configuration Parameters - Kobuki
   max_vel_x: 0.5  # 0.55
   min_vel_x: 0.0

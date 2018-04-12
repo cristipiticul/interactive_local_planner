@@ -87,6 +87,21 @@ private:
 
     bool initialized_;
 
+    // Threshold distance (in meters). If the robot is closer than this value to
+    // a colliding pose (a pose in which the robot is in collision with an obstacle),
+    // the robot stops.
+    double min_distance_to_obstacle_;
+    // Waiting time (in seconds) for the obstacle to move
+    double time_to_wait_for_obstacle_to_move_;
+    // The minimum distance after which we consider the robot has successfully avoided
+    // the obstacle. The distance is measured in meters. The distance is measured from
+    // the first robot pose that is in collision with an obstacle.
+    double distance_after_which_obstacle_is_avoided_;
+    // The minimum probability for which the robot will attempt to wait for it to move.
+    // If the obstacle is less likely than this threshold to move, then it will be
+    // avoided from the beginning.
+    double min_probability_to_wait_;
+
 
     base_local_planner::OdometryHelperRos odom_helper_;
     std::string odom_topic_;

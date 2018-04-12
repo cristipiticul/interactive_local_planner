@@ -12,25 +12,14 @@
 #include <base_local_planner/obstacle_cost_function.h>
 #include <nav_msgs/Path.h>
 
-//TODO: put these in interactive_local_planner_params.yaml file
+// For detailed description see "include/interactive_local_planner.h"
+#define DEFAULT_MIN_DISTANCE_TO_OBSTACLE 0.2
+#define DEFAULT_TIME_TO_WAIT_FOR_OBSTACLE_TO_MOVE 3.0
+#define DEFAULT_DISTANCE_AFTER_WHICH_OBSTACLE_IS_AVOIDED 0.8
+#define DEFAULT_MIN_PROBABILITY_TO_WAIT 0.2
 
-// Threshold distance (in meters). If the robot is closer than this value to
-// a colliding pose (a pose in which the robot is in collision with an obstacle),
-// the robot stops.
-#define MIN_DISTANCE_TO_FIRST_OBSTACLE 0.3
-// Waiting time (in seconds) for the obstacle to move
-#define WAIT_FOR_OBSTACLE_TO_MOVE_TIME 5.0
-// The minimum distance after which we consider the robot has successfully avoided
-// the obstacle. The distance is measured in meters. The distance is measured from
-// the first robot pose that is in collision with an obstacle.
-#define MIN_DISTANCE_AFTER_OBSTACLE 0.4
-// The minimum probability for which the robot will attempt to wait for it to move.
-// If the obstacle is less likely than this threshold to move, then it will be
-// avoided from the beginning.
-#define MIN_PROBABILITY_TO_WAIT 0.2
-
-#define GOING_BACK_AND_FORTH_TIME 0.5
-#define GOING_BACK_AND_FORTH_VELOCITY 0.2
+#define GOING_BACK_AND_FORTH_TIME 0.8
+#define GOING_BACK_AND_FORTH_VELOCITY 0.4
 
 PLUGINLIB_EXPORT_CLASS(interactive_local_planner::InteractiveLocalPlanner, nav_core::BaseLocalPlanner)
 
@@ -94,6 +83,28 @@ using namespace base_local_planner;
       ros::NodeHandle private_nh("~/" + name);
       g_plan_pub_ = private_nh.advertise<nav_msgs::Path>("global_plan", 1);
       l_plan_pub_ = private_nh.advertise<nav_msgs::Path>("local_plan", 1);
+
+      bool ok = true;
+      if (!private_nh.getParam("min_distance_to_obstacle", min_distance_to_obstacle_)) {
+          ROS_WARN("InteractiveLocalPlanner: Please set the %s/min_distance_to_obstacle parameter. (Default: %f)",
+              name.c_str(), DEFAULT_MIN_DISTANCE_TO_OBSTACLE);
+          min_distance_to_obstacle_ = DEFAULT_MIN_DISTANCE_TO_OBSTACLE;
+      }
+      if (!private_nh.getParam("time_to_wait_for_obstacle_to_move", time_to_wait_for_obstacle_to_move_)) {
+          ROS_WARN("InteractiveLocalPlanner: Please set the %s/time_to_wait_for_obstacle_to_move parameter. (Default: %f)",
+              name.c_str(), DEFAULT_TIME_TO_WAIT_FOR_OBSTACLE_TO_MOVE);
+          time_to_wait_for_obstacle_to_move_ = DEFAULT_TIME_TO_WAIT_FOR_OBSTACLE_TO_MOVE;
+      }
+      if (!private_nh.getParam("distance_after_which_obstacle_is_avoided", distance_after_which_obstacle_is_avoided_)) {
+          ROS_WARN("InteractiveLocalPlanner: Please set the %s/distance_after_which_obstacle_is_avoided parameter. (Default: %f)",
+              name.c_str(), DEFAULT_DISTANCE_AFTER_WHICH_OBSTACLE_IS_AVOIDED);
+          distance_after_which_obstacle_is_avoided_ = DEFAULT_DISTANCE_AFTER_WHICH_OBSTACLE_IS_AVOIDED;
+      }
+      if (!private_nh.getParam("min_probability_to_wait", min_probability_to_wait_)) {
+          ROS_WARN("InteractiveLocalPlanner: Please set the %s/min_probability_to_wait parameter. (Default: %f)",
+              name.c_str(), DEFAULT_MIN_PROBABILITY_TO_WAIT);
+          min_probability_to_wait_ = DEFAULT_MIN_PROBABILITY_TO_WAIT;
+      }
       
       tf_ = tf;
       costmap_ros_ = costmap_ros;
@@ -264,7 +275,7 @@ using namespace base_local_planner;
     double not_used_theta;
     path_empty_costmap.getPoint(0, first_point[0], first_point[1], not_used_theta);
     double distance = (first_collision_pose - first_point).norm();
-    return distance >= MIN_DISTANCE_TO_FIRST_OBSTACLE;
+    return distance >= min_distance_to_obstacle_;
   }
 
   std::vector<geometry_msgs::PoseStamped> InteractiveLocalPlanner::createLocalPlanFromTrajectory(const Trajectory& trajectory) {
@@ -362,7 +373,7 @@ using namespace base_local_planner;
           Obstacle obstacle;
           bool obstacle_found = obstacle_classifier_.findObstacleCloseTo(first_collision_pose_, obstacle);
           //TODO: find a better condition here
-          if (obstacle_found && obstacle.move_probability >= MIN_PROBABILITY_TO_WAIT) {
+          if (obstacle_found && obstacle.move_probability >= min_probability_to_wait_) {
             ROS_INFO("InteractiveLocalPlanner: Found an obstacle on the path. Moving back and forth...");
             current_state_ = GOING_BACK_AND_FORTH;
             going_back_and_forth_start_time_ = ros::Time::now();
@@ -411,7 +422,7 @@ using namespace base_local_planner;
           return true;
         }
 
-        if (ros::Time::now() - wait_start_time_ <= ros::Duration(WAIT_FOR_OBSTACLE_TO_MOVE_TIME)) {
+        if (ros::Time::now() - wait_start_time_ <= ros::Duration(time_to_wait_for_obstacle_to_move_)) {
           cmd_vel.linear.x = 0;
           cmd_vel.linear.y = 0;
           cmd_vel.angular.z = 0;
@@ -432,7 +443,7 @@ using namespace base_local_planner;
         // check if the obstacle was successfuly avoided
         Eigen::Vector2d current_pose_eigen(current_pose_.getOrigin().getX(), current_pose_.getOrigin().getY());
         double distance = (current_pose_eigen - first_collision_pose_).norm();
-        if (distance >= MIN_DISTANCE_AFTER_OBSTACLE) {
+        if (distance >= distance_after_which_obstacle_is_avoided_) {
           ROS_INFO("InteractiveLocalPlanner: The obstacle was avoided successfully! We continue pursuing the trajectory...");
           current_state_ = RUNNING;
 
