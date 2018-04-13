@@ -1,0 +1,78 @@
+<?xml version='1.0'?>
+<!-- from http://gazebosim.org/tutorials?tut=build_robot -->
+<sdf version='1.4'>
+    <model name="wall">
+        <static>true</static>
+        <link name='wall'>
+            <inertial>
+                <mass>1</mass>
+            </inertial>
+
+            <collision name='cwall'>
+                <geometry>
+                    <box>
+                        <size>6 0.2 2</size>
+                    </box>
+                </geometry>
+            </collision>
+            <visual name='vwall'>
+                <geometry>
+                    <box>
+                        <size>6 0.2 2</size>
+                    </box>
+                </geometry>
+            </visual>
+
+            <collision name='cbump1'>
+                <geometry>
+                    <box>
+                        <size>0.2 0.2 2</size>
+                    </box>
+                </geometry>
+                <pose>0 0.1 0 0 0 0</pose>
+            </collision>
+            <visual name='vbump1'>
+                <geometry>
+                    <box>
+                        <size>0.2 0.2 2</size>
+                    </box>
+                </geometry>
+                <pose>0 0.1 0 0 0 0</pose>
+            </visual>
+
+            <collision name='cbump2'>
+                <geometry>
+                    <box>
+                        <size>0.2 0.3 2</size>
+                    </box>
+                </geometry>
+                <pose>1.5 0.15 0 0 0 0</pose>
+            </collision>
+            <visual name='vbump2'>
+                <geometry>
+                    <box>
+                        <size>0.2 0.3 2</size>
+                    </box>
+                </geometry>
+                <pose>1.5 0.15 0 0 0 0</pose>
+            </visual>
+
+            <collision name='cbump3'>
+                <geometry>
+                    <box>
+                        <size>0.2 0.3 2</size>
+                    </box>
+                </geometry>
+                <pose>-1.5 0.15 0 0 0 0</pose>
+            </collision>
+            <visual name='vbump3'>
+                <geometry>
+                    <box>
+                        <size>0.2 0.3 2</size>
+                    </box>
+                </geometry>
+                <pose>-1.5 0.15 0 0 0 0</pose>
+            </visual>
+        </link>
+    </model>
+</sdf>

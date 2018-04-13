@@ -1,7 +1,7 @@
 <launch>
   <arg name="moving_obstacle_model_name" value="moving_obstacle"/>
   <node name="moving_obstacle_spawner" pkg="gazebo_ros" type="spawn_model" output="screen"
-    args="-file $(find interactive_local_planner_simulated_obstacle)/models/moving_obstacle/model.sdf -sdf -x -1.0 -y 0 -z 0.3 -Y 1.5757 -model $(arg moving_obstacle_model_name)" />
+    args="-file $(find interactive_local_planner_simulated_obstacle)/models/moving_obstacle/model.sdf -sdf -x 1.0 -y 0 -z 0.3 -Y 1.5757 -model $(arg moving_obstacle_model_name)" />
   
   <node name="obstacle_controller" pkg="interactive_local_planner_simulated_obstacle"
     type="obstacle_controller.py" output="screen">
@@ -20,7 +20,7 @@
 
   <arg name="static_obstacle_model_name" value="static_obstacle"/>
   <node name="static_obstacle_spawner" pkg="gazebo_ros" type="spawn_model" output="screen"
-    args="-file $(find interactive_local_planner_simulated_obstacle)/models/moving_obstacle/model.sdf -sdf -x -2.0 -y 0 -z 0.3 -Y 1.5757 -model $(arg static_obstacle_model_name)" />
+    args="-file $(find interactive_local_planner_simulated_obstacle)/models/moving_obstacle/model.sdf -sdf -x 2.0 -y 0 -z 0.3 -Y 1.5757 -model $(arg static_obstacle_model_name)" />
   <node name="static_obstacle_tf_publisher" pkg="interactive_local_planner_simulated_obstacle"
     type="static_obstacle_tf_publisher.py" output="screen">
     <param name="robot_link" value="mobile_base::base_footprint"/>

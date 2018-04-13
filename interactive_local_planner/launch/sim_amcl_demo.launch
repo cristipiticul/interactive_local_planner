@@ -1,19 +1,16 @@
 <launch>
   <arg name="3d_sensor" default="$(env TURTLEBOT_3D_SENSOR)"/>
   <arg name="gazebo_gui" default="false"/>
-  <arg name="spawn_obstacles" default="true"/>
 
   <include file="$(find turtlebot_gazebo)/launch/turtlebot_world.launch">
     <arg name="gui" value="$(arg gazebo_gui)"/>
-    <arg name="world_file" value="$(find interactive_local_planner)/worlds/room.world"/>
+    <arg name="world_file" value="worlds/empty.world"/>
   </include>
+  <include file="$(find interactive_local_planner)/launch/includes/spawn_room.launch"/>
 
   <!-- Map server -->
   <arg name="map_file" default="$(find interactive_local_planner)/map/sim/map.yaml"/>
   <node name="map_server" pkg="map_server" type="map_server" args="$(arg map_file)" />
-
-  <include file="$(find turtlebot_navigation)/launch/includes/velocity_smoother.launch.xml"/>
-  <include file="$(find turtlebot_navigation)/launch/includes/safety_controller.launch.xml"/>
 
   <!-- AMCL -->
   <arg name="custom_amcl_launch_file" default="$(find turtlebot_navigation)/launch/includes/amcl/$(arg 3d_sensor)_amcl.launch.xml"/>
@@ -27,11 +24,13 @@
   </include>
 
   <!-- Move base -->
+  <include file="$(find turtlebot_navigation)/launch/includes/velocity_smoother.launch.xml"/>
+  <include file="$(find turtlebot_navigation)/launch/includes/safety_controller.launch.xml"/>
   <include file="$(find interactive_local_planner)/launch/includes/move_base.launch"/>
+
+  <!-- Obstacles -->
+  <include file="$(find interactive_local_planner)/launch/includes/spawn_obstacles.launch"/>
 
   <!-- RViz -->
   <node name="rviz" pkg="rviz" type="rviz" args="-d $(find interactive_local_planner)/rviz/navigation.rviz"/>
-
-  <!-- Obstacles -->
-  <include if="$(arg spawn_obstacles)" file="$(find interactive_local_planner)/launch/includes/obstacles_spawner.launch"/>
 </launch>
