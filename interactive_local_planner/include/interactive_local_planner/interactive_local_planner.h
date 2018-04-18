@@ -57,6 +57,8 @@ private:
         Eigen::Vector2d& first_collision_pose);
     std::vector<geometry_msgs::PoseStamped> createLocalPlanFromTrajectory(
         const base_local_planner::Trajectory& trajectory);
+    bool obstacleWasAvoided();
+    void doNothing(geometry_msgs::Twist& cmd_vel);
     /**
      * @brief Callback to update the local planner's parameters based on dynamic reconfigure
      */

@@ -18,7 +18,8 @@
 #define DEFAULT_DISTANCE_AFTER_WHICH_OBSTACLE_IS_AVOIDED 0.8
 #define DEFAULT_MIN_PROBABILITY_TO_WAIT 0.2
 
-#define GOING_BACK_AND_FORTH_TIME 0.8
+#define GOING_BACK_AND_FORTH_REPETITIONS 2
+#define GOING_BACK_AND_FORTH_TIME 0.3
 #define GOING_BACK_AND_FORTH_VELOCITY 0.4
 
 PLUGINLIB_EXPORT_CLASS(interactive_local_planner::InteractiveLocalPlanner, nav_core::BaseLocalPlanner)
@@ -386,8 +387,9 @@ using namespace base_local_planner;
 
       if (current_state_ == GOING_BACK_AND_FORTH) {
         ros::Duration going_back_and_forth_duration = ros::Time::now() - going_back_and_forth_start_time_;
-        if (going_back_and_forth_duration <= ros::Duration(GOING_BACK_AND_FORTH_TIME)) {
-          if (int(going_back_and_forth_duration.toSec() / 4.0) % 2 == 0) {
+        if (going_back_and_forth_duration <=
+            ros::Duration(GOING_BACK_AND_FORTH_TIME * GOING_BACK_AND_FORTH_REPETITIONS)) {
+          if (int(going_back_and_forth_duration.toSec() * 2 / GOING_BACK_AND_FORTH_TIME) % 2 == 0) {
             // going back
             cmd_vel.linear.x = -GOING_BACK_AND_FORTH_VELOCITY;
             cmd_vel.linear.y = 0;
@@ -404,7 +406,6 @@ using namespace base_local_planner;
           current_state_ = WAITING_FOR_OBSTACLE_TO_MOVE;
           wait_start_time_ = ros::Time::now();
         }
-
       }
 
       if (current_state_ == WAITING_FOR_OBSTACLE_TO_MOVE) {
@@ -423,14 +424,7 @@ using namespace base_local_planner;
         }
 
         if (ros::Time::now() - wait_start_time_ <= ros::Duration(time_to_wait_for_obstacle_to_move_)) {
-          cmd_vel.linear.x = 0;
-          cmd_vel.linear.y = 0;
-          cmd_vel.angular.z = 0;
-
-          std::vector<geometry_msgs::PoseStamped> empty_plan;
-          publishGlobalPlan(empty_plan);
-          publishLocalPlan(empty_plan);
-
+          doNothing();
           return true;
         } else {
           ROS_INFO("InteractiveLocalPlanner: The obstacle did not move. Going around it...");
@@ -440,20 +434,9 @@ using namespace base_local_planner;
       }
 
       if (current_state_ == GOING_AROUND_OBSTACLE) {
-        // check if the obstacle was successfuly avoided
-        Eigen::Vector2d current_pose_eigen(current_pose_.getOrigin().getX(), current_pose_.getOrigin().getY());
-        double distance = (current_pose_eigen - first_collision_pose_).norm();
-        if (distance >= distance_after_which_obstacle_is_avoided_) {
+        if (obstacleWasAvoided()) {
           ROS_INFO("InteractiveLocalPlanner: The obstacle was avoided successfully! We continue pursuing the trajectory...");
           current_state_ = RUNNING;
-
-          cmd_vel.linear.x = 0;
-          cmd_vel.linear.y = 0;
-          cmd_vel.angular.z = 0;
-
-          std::vector<geometry_msgs::PoseStamped> empty_plan;
-          publishGlobalPlan(empty_plan);
-          publishLocalPlan(empty_plan);
           return true;
         }
         Trajectory trajectory;
@@ -464,9 +447,7 @@ using namespace base_local_planner;
           publishLocalPlan(local_plan);
         } else {
           ROS_WARN("InteractiveLocalPlanner: DWA planner failed to produce path.");
-          std::vector<geometry_msgs::PoseStamped> empty_plan;
-          publishGlobalPlan(empty_plan);
-          publishLocalPlan(empty_plan);
+          doNothing();
         }
         return isOk;
       }
@@ -474,5 +455,21 @@ using namespace base_local_planner;
       ROS_ERROR("InteractiveLocalPlanner: Invalid state! This point should never be reached.");
       return false;
     }
+  }
+
+  bool InteractiveLocalPlanner::obstacleWasAvoided() {
+    Eigen::Vector2d current_pose_eigen(current_pose_.getOrigin().getX(), current_pose_.getOrigin().getY());
+    double distance = (current_pose_eigen - first_collision_pose_).norm();
+    return distance >= distance_after_which_obstacle_is_avoided_;
+  }
+
+  void InteractiveLocalPlanner::doNothing(geometry_msgs::Twist& cmd_vel) {
+    cmd_vel.linear.x = 0;
+    cmd_vel.linear.y = 0;
+    cmd_vel.angular.z = 0;
+
+    std::vector<geometry_msgs::PoseStamped> empty_plan;
+    publishGlobalPlan(empty_plan);
+    publishLocalPlan(empty_plan);
   }
 }
