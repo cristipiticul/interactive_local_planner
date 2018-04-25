@@ -45,5 +45,5 @@ class MovingObstacleController:
                     rospy.logerr('obstacle_controller: Problem when moving joint %s', joint)
                     rospy.logerr('obstacle_controller: Details: %s', response.status_message)
                     return
-                rospy.sleep(MOVING_DURATION)
-                self.moving = False
+            rospy.sleep(MOVING_DURATION)
+            self.moving = False

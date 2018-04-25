@@ -3,7 +3,6 @@
 
 
 #include <boost/shared_ptr.hpp>
-#include <boost/thread.hpp>
 
 #include <tf/transform_listener.h>
 
@@ -25,6 +24,7 @@
 #include <sensor_msgs/PointCloud2.h>
 
 #include "interactive_local_planner/obstacle_classifier.h"
+#include "interactive_local_planner/global_planner_interaction.h"
 
 namespace interactive_local_planner
 {
@@ -121,6 +121,7 @@ private:
     Eigen::Vector2d first_collision_pose_;
 
     ObstacleClassifier obstacle_classifier_;
+    GlobalPlannerInteraction global_planner_interaction_;
 };
 
 }

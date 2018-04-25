@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8.3)
 project(interactive_local_planner)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-# add_compile_options(-std=c++11)
+add_compile_options(-std=c++11)
 
 find_package(catkin REQUIRED COMPONENTS
   base_local_planner
@@ -32,6 +32,8 @@ include_directories(
     )
 add_definitions(${EIGEN3_DEFINITIONS})
 
+find_package(Boost REQUIRED COMPONENTS thread chrono)
+
 catkin_package(
     INCLUDE_DIRS include
     LIBRARIES interactive_local_planner
@@ -48,15 +50,22 @@ target_link_libraries(obstacle_classifier
   ${catkin_LIBRARIES}
 )
 
+add_library(global_planner_interaction src/interactive_local_planner/global_planner_interaction.cpp)
+target_link_libraries(global_planner_interaction
+  ${catkin_LIBRARIES}
+)
+
 add_library(interactive_local_planner src/interactive_local_planner.cpp)
 add_dependencies(interactive_local_planner
   ${${PROJECT_NAME}_EXPORTED_TARGETS}
   ${catkin_EXPORTED_TARGETS}
   obstacle_classifier
+  global_planner_interaction
 )
 target_link_libraries(interactive_local_planner
   ${catkin_LIBRARIES}
   obstacle_classifier
+  global_planner_interaction
 )
 
 install(TARGETS interactive_local_planner

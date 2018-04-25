@@ -141,6 +141,8 @@ using namespace base_local_planner;
       dsrv_ = new dynamic_reconfigure::Server<DWAPlannerConfig>(private_nh);
       dynamic_reconfigure::Server<DWAPlannerConfig>::CallbackType cb = boost::bind(&InteractiveLocalPlanner::reconfigureCB, this, _1, _2);
       dsrv_->setCallback(cb);
+
+      global_planner_interaction_.initialize();
     }
     else{
       ROS_WARN("InteractiveLocalPlanner: This planner has already been initialized, doing nothing.");
@@ -354,6 +356,15 @@ using namespace base_local_planner;
           boost::bind(&DWAPlanner::checkTrajectory, current_dp, _1, _2, _3));
     } else {
       if (current_state_ == RUNNING) {
+        // Disable obstacle layer of global planner costmap
+        if (global_planner_interaction_.isObstacleLayerEnabled()) {
+          global_planner_interaction_.setObstacleLayerEnabled(false);
+        }
+        if (!global_planner_interaction_.isReady()) {
+          global_planner_interaction_.update();
+          return false;
+        }
+
         Trajectory trajectory;
         Eigen::Vector2d first_collision_pose;
         bool isOk = computeVelocityCommandsIgnoringObstacles(current_pose_, cmd_vel, trajectory);
@@ -424,7 +435,7 @@ using namespace base_local_planner;
         }
 
         if (ros::Time::now() - wait_start_time_ <= ros::Duration(time_to_wait_for_obstacle_to_move_)) {
-          doNothing();
+          doNothing(cmd_vel);
           return true;
         } else {
           ROS_INFO("InteractiveLocalPlanner: The obstacle did not move. Going around it...");
@@ -439,6 +450,16 @@ using namespace base_local_planner;
           current_state_ = RUNNING;
           return true;
         }
+
+        // Enable obstacle layer of global planner costmap
+        if (!global_planner_interaction_.isObstacleLayerEnabled()) {
+          global_planner_interaction_.setObstacleLayerEnabled(true);
+        }
+        if (!global_planner_interaction_.isReady()) {
+          global_planner_interaction_.update();
+          return false;
+        }
+
         Trajectory trajectory;
         bool isOk = dwaComputeVelocityCommands(current_pose_, cmd_vel, trajectory);
         if (isOk) {
@@ -447,7 +468,7 @@ using namespace base_local_planner;
           publishLocalPlan(local_plan);
         } else {
           ROS_WARN("InteractiveLocalPlanner: DWA planner failed to produce path.");
-          doNothing();
+          doNothing(cmd_vel);
         }
         return isOk;
       }
